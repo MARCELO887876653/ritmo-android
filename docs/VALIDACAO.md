@@ -3,7 +3,7 @@
 Verificações executadas no ambiente de desenvolvimento:
 
 - `assembleDebug`: compilação concluída, APK debug gerado.
-- `testDebugUnitTest`: **14 testes, 0 falhas, 0 erros** (JUnit + Android/Robolectric API 35).
+- `testDebugUnitTest`: **19 testes, 0 falhas, 0 erros** (JUnit + Android/Robolectric API 35).
 - `lintDebug`: aprovado; relatório gerado pelo Android Lint.
 - `assembleRelease`: compilação, R8 e empacotamento concluídos.
 - `lintVitalRelease`: aprovado.
@@ -23,14 +23,22 @@ Verificações executadas no ambiente de desenvolvimento:
 APK: `ritmo-1.0.0.apk` (release assinado, cerca de 1,5 MB).
 
 SHA-256 do APK:
-`59c29e062f0dc42610436dcc57ea988f5853e58b69b901eb163f3d51d9c2e8da`
+`f45fb5ea29cc62f92cb854d077051889fd12f05a0961335922adb57eb82da02a`
 
 SHA-256 do certificado permanente:
 `0174c95cab08402c23be939195b5974879cd58c1043f095fa76cc752daf930ce`
 
 ## Testes de interface
 
-Execução em emulador Android 15 em andamento. O resultado final será registrado antes da entrega.
+**5 testes de interface passaram no Android/Robolectric API 35, executando Compose e MainActivity:**
+
+- Cadastro de exercício e modelo, registro/conclusão de duas sessões do mesmo exercício, cópia de séries anteriores e retorno correto ao início.
+- Recriação da Activity com treino ativo e navegação para histórico/progresso offline.
+- Modal opcional com “Depois”, modal obrigatório sem dispensa e ausência de aviso quando a versão já está instalada.
+
+O teste completo detectou e levou à correção de navegação duplicada após finalizar um treino; o ViewModel é agora o único responsável por essa transição.
+
+A suíte de instrumentação foi compilada. A tentativa de `connectedDebugAndroidTest` em emulador externo sem KVM foi **bloqueada pelo ambiente**: Android Emulator conectado informou “Unknown API Level”, e o runner recusou o dispositivo. Não há confirmação de execução em celular físico/emulador completo nesta entrega. O CI inclui essa suíte para execução manual em runner com aceleração. Os 19 testes aprovados são os testes de Android simulado, não testes instrumentados no dispositivo.
 
 ## Publicação
 

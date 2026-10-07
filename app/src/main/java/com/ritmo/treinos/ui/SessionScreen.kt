@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
     val rest by vm.restRemaining.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val ordered = workout?.exercises?.sortedBy { it.session.position }.orEmpty()
-    if (workout?.session?.endedAt != null) { LaunchedEffect(id) { go("detail/$id") }; return }
+    if (workout?.session?.endedAt != null) { WorkoutHistoryDetail(data, id, back); return }
     LazyColumn(Modifier.fillMaxSize().imePadding(), state = list, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { PageTitle(workout?.session?.name ?: "Treino", "Seu progresso é salvo automaticamente.", back) }
         item {

@@ -4,15 +4,19 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.LooperMode
 import com.ritmo.treinos.data.AppSettings
 import com.ritmo.treinos.ui.*
 import com.ritmo.treinos.update.UpdateInfo
 import org.junit.*
 import org.junit.runner.RunWith
 
-@RunWith(AndroidJUnit4::class)
-class UpdateUiTest {
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+@LooperMode(LooperMode.Mode.PAUSED)
+class UpdateUiLocalTest {
     @get:Rule val compose = createComposeRule()
     private lateinit var vm: RitmoViewModel
     private val store = ViewModelStore()

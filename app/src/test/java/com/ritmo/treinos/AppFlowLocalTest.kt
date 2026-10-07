@@ -3,14 +3,18 @@ package com.ritmo.treinos
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.LooperMode
 import com.ritmo.treinos.data.*
 import kotlinx.coroutines.runBlocking
 import org.junit.*
 import org.junit.runner.RunWith
 
-@RunWith(AndroidJUnit4::class)
-class AppFlowTest {
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+@LooperMode(LooperMode.Mode.PAUSED)
+class AppFlowLocalTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val app get() = ApplicationProvider.getApplicationContext<RitmoApplication>()
     @Before fun prepare() = runBlocking {
