@@ -1,8 +1,8 @@
 {
-  "versionCode": 2,
-  "versionName": "1.0.1",
+  "versionCode": 3,
+  "versionName": "1.0.2",
   "minimumVersionCode": 1,
   "forceUpdate": false,
-  "message": "Ritmo 1.0.1 disponível: novas opções para excluir exercícios e outras melhorias.",
-  "downloadUrl": "https://github.com/MARCELO887876653/ritmo-android/releases/download/v1.0.1/ritmo-1.0.1.apk"
+  "message": "Baixe as próximas atualizações dentro do Ritmo, acompanhe o progresso e confirme a instalação pelo Android.",
+  "downloadUrl": "https://github.com/MARCELO887876653/ritmo-android/releases/download/v1.0.2/ritmo-1.0.2.apk"
 }
