@@ -8,6 +8,8 @@ import com.ritmo.treinos.RitmoApplication
 import com.ritmo.treinos.BuildConfig
 import com.ritmo.treinos.data.*
 import com.ritmo.treinos.update.UpdateInfo
+import com.ritmo.treinos.update.ApkDownloadState
+import com.ritmo.treinos.update.DownloadPhase
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -19,6 +21,7 @@ data class AppData(val exercises: List<Exercise> = emptyList(), val templates: L
     val history get() = workouts.filter { it.session.endedAt != null }
 }
 sealed interface UiEvent {
+    data class Install(val intent: android.content.Intent, val needsPermission: Boolean) : UiEvent
     data class Message(val text: String) : UiEvent
     data class Navigate(val route: String, val home: Boolean = false) : UiEvent
 }
@@ -34,9 +37,22 @@ class RitmoViewModel(private val app: RitmoApplication) : ViewModel() {
     val checking = MutableStateFlow(false)
     val updateError = MutableStateFlow<String?>(null)
     val dismissedCode = MutableStateFlow<Int?>(null)
+    val apkDownload = MutableStateFlow(ApkDownloadState())
+    val installError = MutableStateFlow<String?>(null)
+    private val downloadMutex = Mutex()
     val restRemaining = MutableStateFlow(0)
     private var deadline = app.settings.restDeadline()
     init {
+        viewModelScope.launch {
+            var restoreDownload = true
+            while (isActive) {
+                if (restoreDownload || apkDownload.value.phase in listOf(DownloadPhase.DOWNLOADING, DownloadPhase.PAUSED)) {
+                    downloadMutex.withLock { apkDownload.value = withContext(Dispatchers.IO) { app.apkDownloads.refresh() } }
+                    restoreDownload = false
+                }
+                delay(1000)
+            }
+        }
         if (settings.value.checkOnOpen || update.value?.mandatory(BuildConfig.VERSION_CODE) == true) checkUpdate(false)
         viewModelScope.launch {
             while (isActive) {
@@ -56,6 +72,11 @@ class RitmoViewModel(private val app: RitmoApplication) : ViewModel() {
     }
     fun saveExercise(id: Long?, name: String, notes: String) = work { val result = repo.saveExercise(id, name, notes); eventChannel.send(UiEvent.Navigate("exercise/$result")) }
     fun archiveExercise(id: Long) = work { repo.archiveExercise(id); eventChannel.send(UiEvent.Navigate("exercises")) }
+    fun deleteExercise(id: Long, returnToCatalog: Boolean = false) = work {
+        repo.deleteExercise(id)
+        if (returnToCatalog) eventChannel.send(UiEvent.Navigate("exercises"))
+        eventChannel.send(UiEvent.Message("Exercício excluído. Os registros anteriores foram preservados."))
+    }
     fun saveTemplate(id: Long?, name: String, exerciseIds: List<Long>) = work { repo.saveTemplate(id, name, exerciseIds); eventChannel.send(UiEvent.Navigate("workouts")) }
     fun deleteTemplate(id: Long) = work { repo.deleteTemplate(id); eventChannel.send(UiEvent.Navigate("workouts")) }
     fun start(id: Long) = work { eventChannel.send(UiEvent.Navigate("session/${repo.start(id)}")) }
@@ -84,6 +105,34 @@ class RitmoViewModel(private val app: RitmoApplication) : ViewModel() {
             } finally { checking.value = false }
         }
     }
+    fun downloadUpdate() = viewModelScope.launch {
+        val target = update.value ?: return@launch
+        dismissedCode.value = null
+        installError.value = null
+        try { downloadMutex.withLock { apkDownload.value = withContext(Dispatchers.IO) { app.apkDownloads.start(target) } } }
+        catch (e: Exception) { if (e is CancellationException) throw e; installError.value = e.message ?: "Não foi possível iniciar o download." }
+    }
+    fun cancelDownload() = viewModelScope.launch {
+        downloadMutex.withLock {
+            withContext(Dispatchers.IO) { app.apkDownloads.cancel() }
+            apkDownload.value = ApkDownloadState()
+        }
+    }
+    fun installUpdate(afterPermission: Boolean = false) = viewModelScope.launch {
+        installError.value = null
+        try {
+            val target = requireNotNull(update.value)
+            val action = downloadMutex.withLock { withContext(Dispatchers.IO) { app.apkDownloads.installAction(target) } }
+            if (afterPermission && action.needsPermission) installError.value = "Permita ao Ritmo instalar atualizações para continuar. O APK permanece salvo."
+            else eventChannel.send(UiEvent.Install(action.intent, action.needsPermission))
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            installError.value = e.message ?: "Não foi possível abrir a instalação. Tente novamente."
+            downloadMutex.withLock { apkDownload.value = withContext(Dispatchers.IO) { app.apkDownloads.refresh() } }
+        }
+    }
+    fun installLaunchFailed() { installError.value = "O Android não conseguiu abrir a instalação ou a permissão. O APK permanece salvo; tente novamente." }
+    fun openUpdateDownload() { dismissedCode.value = null }
     fun export(uri: Uri) = work { app.backup.export(uri); eventChannel.send(UiEvent.Message("Backup exportado. Guarde o arquivo em um local seguro.")) }
     fun restore(uri: Uri) = work { app.backup.restore(uri); stopRest(); eventChannel.send(UiEvent.Navigate("home", true)); eventChannel.send(UiEvent.Message("Backup restaurado.")) }
     fun message(text: String) { viewModelScope.launch { eventChannel.send(UiEvent.Message(text)) } }

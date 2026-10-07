@@ -31,3 +31,8 @@ local.properties
 secrets.properties
 .env
 .env.*
+
+# Public APKs already signed for automated Releases
+!distribution/*.apk
+__pycache__/
+*.pyc

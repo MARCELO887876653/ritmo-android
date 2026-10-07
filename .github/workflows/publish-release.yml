@@ -1,0 +1,23 @@
+name: Publish signed APK
+on:
+  push:
+    branches: [main]
+    paths: ['distribution/**', '.github/workflows/publish-release.yml', 'scripts/publish-signed-release.py']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-signed-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify and publish the already signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish-signed-release.py

@@ -22,6 +22,16 @@ class WorkoutRepository(val db: RitmoDatabase) {
         else { val current = requireNotNull(dao.exercise(id)); dao.updateExercise(current.copy(name = clean, normalizedName = normalizeName(clean), notes = notes)); id }
     }
     suspend fun archiveExercise(id: Long) { dao.exercise(id)?.let { dao.updateExercise(it.copy(archived = true)) } }
+    suspend fun deleteExercise(id: Long) = db.withTransaction {
+        val exercise = dao.exercise(id) ?: return@withTransaction
+        dao.updateExercise(exercise.copy(archived = true))
+        // Remove only future template membership; recorded and active sessions keep their data.
+        dao.links().filter { it.exerciseId == id }.map { it.templateId }.distinct().forEach { templateId ->
+            val remaining = dao.templateLinks(templateId).filter { it.exerciseId != id }
+            dao.clearLinks(templateId)
+            remaining.forEachIndexed { position, link -> dao.insertLink(link.copy(position = position)) }
+        }
+    }
     suspend fun saveTemplate(id: Long?, name: String, exercises: List<Long>): Long = db.withTransaction {
         require(name.trim().isNotEmpty() && name.length <= 100) { "Dê um nome ao treino (até 100 caracteres)." }
         require(exercises.isNotEmpty()) { "Adicione pelo menos um exercício." }

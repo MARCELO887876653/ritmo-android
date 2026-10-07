@@ -17,10 +17,13 @@ import org.junit.runner.RunWith
 class AppFlowLocalTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val app get() = ApplicationProvider.getApplicationContext<RitmoApplication>()
-    @Before fun prepare() = runBlocking {
+    @Before fun prepare() {
+        runBlocking {
         app.settings.save(AppSettings(checkOnOpen = false, autoRest = false))
         app.settings.prefs.edit().remove("updateJson").commit()
         val dao = app.database.dao(); dao.clearWorkouts(); dao.clearTemplates(); dao.clearExercises()
+        }
+        waitText("RITMO")
     }
     private fun waitText(text: String) { compose.waitUntil(30000) { compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty() } }
     private fun clickScrolled(text: String) {
@@ -45,7 +48,8 @@ class AppFlowLocalTest {
         compose.onNodeWithText("Nome do treino").performTextInput("Treino A")
         clickScrolled("Supino reto")
         clickScrolled("Salvar treino"); waitText("Meus treinos")
-        compose.onNodeWithText("Começar").performClick(); waitText("Seu progresso é salvo automaticamente.")
+        compose.onNodeWithText("Começar").performClick(); waitText("Seu progresso é salvo automaticamente."); waitText("Treino A")
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Carga (kg)"))
         compose.onNodeWithText("Carga (kg)").performTextInput("30")
         compose.onNodeWithText("Repetições").performTextInput("10")
         compose.onNode(isToggleable()).performScrollTo().performClick(); waitText("Série concluída")
@@ -72,5 +76,27 @@ class AppFlowLocalTest {
         compose.onNodeWithContentDescription("Voltar").performClick()
         compose.onNodeWithText("Histórico", useUnmergedTree = true).performClick(); waitText("Ainda sem registros")
         compose.onNodeWithText("Progresso", useUnmergedTree = true).performClick(); waitText("Um passo de cada vez")
+    }
+    @Test fun deleteExerciseFromCatalogRequiresConfirmationAndKeepsHistory() {
+        val exercise = runBlocking {
+            val id = app.repository.saveExercise(null, "Supino reto", "")
+            val template = app.repository.saveTemplate(null, "Treino A", listOf(id))
+            val workout = app.repository.start(template)
+            app.repository.saveSet(app.database.dao().sets().single().id, 30.0, 10, true)
+            app.repository.finish(workout)
+            id
+        }
+        compose.onAllNodesWithText("Exercícios").onLast().performClick(); waitText("1 sessões registradas")
+        compose.onNodeWithContentDescription("Excluir exercício Supino reto").performClick()
+        compose.onNodeWithText("Excluir exercício?").assertExists()
+        compose.onNodeWithText("Cancelar").performClick()
+        compose.onNodeWithContentDescription("Excluir exercício Supino reto").assertExists().performClick()
+        compose.onNodeWithText("Excluir").performClick(); waitText("Nenhum exercício aqui")
+        runBlocking {
+            Assert.assertTrue(app.database.dao().exercise(exercise)!!.archived)
+            Assert.assertTrue(app.database.dao().links().isEmpty())
+            Assert.assertEquals(exercise, app.database.dao().exerciseSessions().single().exerciseId)
+            Assert.assertEquals(30.0, app.database.dao().sets().single().weight, 0.0)
+        }
     }
 }

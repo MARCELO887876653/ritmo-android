@@ -74,8 +74,9 @@ import com.ritmo.treinos.data.*
         } } }
     }
 }
-@Composable fun ExercisesScreen(data: AppData, go: (String) -> Unit) {
+@Composable fun ExercisesScreen(data: AppData, go: (String) -> Unit, delete: (Long) -> Unit) {
     var query by remember { mutableStateOf("") }
+    var pendingDelete by remember { mutableStateOf<Exercise?>(null) }
     Page {
         item { PageTitle("Exercícios", "Um exercício. Todo o seu histórico."); Button(onClick = { go("edit-exercise") }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Default.Add, null); Text("Novo exercício") }; OutlinedTextField(query, { query = it }, label = { Text("Buscar exercício") }, leadingIcon = { Icon(Icons.Default.Search, null) }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), singleLine = true) }
         val filtered = data.exercises.filter { !it.archived && it.name.contains(query, true) }
@@ -85,10 +86,25 @@ import com.ritmo.treinos.data.*
             Card(onClick = { go("exercise/${exercise.id}") }, modifier = Modifier.fillMaxWidth()) { Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.FitnessCenter, null, tint = MaterialTheme.colorScheme.primary)
                 Column(Modifier.weight(1f).padding(start = 16.dp)) { Text(exercise.name, style = MaterialTheme.typography.titleMedium); Text("$records sessões registradas", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+                IconButton(onClick = { pendingDelete = exercise }) {
+                    Icon(Icons.Default.DeleteOutline, "Excluir exercício ${exercise.name}", tint = MaterialTheme.colorScheme.error)
+                }
                 Icon(Icons.Default.ChevronRight, null)
             } }
         }
     }
+    pendingDelete?.let { exercise ->
+        DeleteExerciseDialog(exercise.name, { pendingDelete = null }) {
+            pendingDelete = null
+            delete(exercise.id)
+        }
+    }
+}
+@Composable fun DeleteExerciseDialog(name: String, dismiss: () -> Unit, confirm: () -> Unit) {
+    AlertDialog(onDismissRequest = dismiss, title = { Text("Excluir exercício?") },
+        text = { Text("\"$name\" será removido da lista de exercícios e dos modelos de treino. O histórico e o treino em andamento serão preservados.") },
+        confirmButton = { TextButton(onClick = confirm) { Text("Excluir", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = dismiss) { Text("Cancelar") } })
 }
 @Composable fun HistoryScreen(data: AppData, go: (String) -> Unit) {
     Page {

@@ -28,7 +28,7 @@ class UpdateUiLocalTest {
         vm = RitmoViewModel(app); store.put("test", vm)
     }
     @After fun cleanup() { store.clear() }
-    private fun info(force: Boolean, code: Int = 2) = UpdateInfo(code, "1.1.0", 1, force, "Teste de atualização", "https://github.com/${BuildConfig.GITHUB_REPOSITORY}/releases/download/v1.1.0/test.apk")
+    private fun info(force: Boolean, code: Int = BuildConfig.VERSION_CODE + 1) = UpdateInfo(code, "1.1.0", 1, force, "Teste de atualização", "https://github.com/${BuildConfig.GITHUB_REPOSITORY}/releases/download/v1.1.0/test.apk")
     @Test fun optionalUpdateHasLaterAndAllowsUse() {
         vm.update.value = info(false); compose.setContent { RitmoApp(vm) }
         compose.onNodeWithText("Nova atualização disponível").assertIsDisplayed()

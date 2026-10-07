@@ -10,6 +10,7 @@ import javax.net.ssl.HttpsURLConnection
 
 /** Only validated metadata is cached. A network failure never invents a mandatory update. */
 data class UpdateInfo(val versionCode: Int, val versionName: String, val minimumVersionCode: Int, val forceUpdate: Boolean, val message: String, val downloadUrl: String) {
+    fun toJson(): String = JSONObject().put("versionCode", versionCode).put("versionName", versionName).put("minimumVersionCode", minimumVersionCode).put("forceUpdate", forceUpdate).put("message", message).put("downloadUrl", downloadUrl).toString()
     fun available(installed: Int) = versionCode > installed
     fun mandatory(installed: Int) = available(installed) && (forceUpdate || installed < minimumVersionCode)
     companion object {

@@ -10,10 +10,10 @@ import com.ritmo.treinos.data.*
 
 @Composable fun ExerciseScreen(data: AppData, id: Long, vm: RitmoViewModel, back: () -> Unit, go: (String) -> Unit) {
     val exercise = data.exercises.find { it.id == id }
-    var archive by remember { mutableStateOf(false) }
+    var delete by remember { mutableStateOf(false) }
     val records = data.history.mapNotNull { workout -> workout.exercises.find { it.session.exerciseId == id }?.let { workout to it } }
     Page {
-        item { PageTitle(exercise?.name ?: "Exercício", "Histórico por exercício", back); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { go("edit-exercise?exerciseId=$id") }) { Text("Editar cadastro") }; if (exercise?.archived == false) TextButton(onClick = { archive = true }) { Text("Arquivar") } }; if (!exercise?.notes.isNullOrBlank()) Text(exercise!!.notes, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { PageTitle(exercise?.name ?: "Exercício", "Histórico por exercício", back); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { go("edit-exercise?exerciseId=$id") }) { Text("Editar cadastro") }; if (exercise?.archived == false) TextButton(onClick = { delete = true }) { Text("Excluir", color = MaterialTheme.colorScheme.error) } }; if (!exercise?.notes.isNullOrBlank()) Text(exercise!!.notes, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         item { Section("Último treino") }
         if (records.isEmpty()) item { EmptyState("Sem sessões anteriores", "Adicione este exercício a um treino e registre suas séries.") }
         else item { ExerciseRecord(records.first().first, records.first().second) { go("detail/${records.first().first.session.id}") } }
@@ -21,7 +21,7 @@ import com.ritmo.treinos.data.*
         item { Section("Todas as sessões"); Text("Apenas séries concluídas entram no gráfico. As demais ficam identificadas no histórico.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         items(records, key = { it.second.session.id }) { (workout, session) -> ExerciseRecord(workout, session) { go("detail/${workout.session.id}") } }
     }
-    if (archive) AlertDialog(onDismissRequest = { archive = false }, title = { Text("Arquivar exercício?") }, text = { Text("Ele sairá do catálogo para novos treinos. Seus registros e os modelos que já usam o exercício serão preservados. Cadastre o mesmo nome para reativá-lo.") }, confirmButton = { TextButton(onClick = { archive = false; vm.archiveExercise(id) }) { Text("Arquivar") } }, dismissButton = { TextButton(onClick = { archive = false }) { Text("Cancelar") } })
+    if (delete) DeleteExerciseDialog(exercise?.name.orEmpty(), { delete = false }) { delete = false; vm.deleteExercise(id, returnToCatalog = true) }
 }
 @Composable fun ExerciseRecord(workout: WorkoutDetail, detail: ExerciseDetail, click: () -> Unit) {
     Card(onClick = click, modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

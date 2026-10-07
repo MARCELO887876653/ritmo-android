@@ -37,6 +37,24 @@ class WorkoutRepositoryTest {
         assertEquals(firstEs, db.dao().previous(e, second)!!.session.id)
     }
     @Test fun startingTwiceResumesSingleSession(): Unit = runBlocking { val e = repo.saveExercise(null, "Agachamento", ""); val t = repo.saveTemplate(null, "Pernas", listOf(e)); assertEquals(repo.start(t), repo.start(t)); assertEquals(1, db.dao().workouts().size) }
+    @Test fun deletingExercisePreservesHistoryAndActiveSessionAndRemovesTemplateMembership(): Unit = runBlocking {
+        val first = repo.saveExercise(null, "Supino", "nota")
+        val removed = repo.saveExercise(null, "Crucifixo", "")
+        val last = repo.saveExercise(null, "Tríceps", "")
+        val template = repo.saveTemplate(null, "Treino A", listOf(first, removed, last))
+        val previous = repo.start(template); complete(previous)
+        val active = repo.start(template)
+        val sessions = db.dao().exerciseSessions(); val sets = db.dao().sets()
+        repo.deleteExercise(removed)
+        assertTrue(db.dao().exercise(removed)!!.archived)
+        assertEquals(listOf(first, last), db.dao().templateLinks(template).map { it.exerciseId })
+        assertEquals(listOf(0, 1), db.dao().templateLinks(template).map { it.position })
+        assertEquals(sessions, db.dao().exerciseSessions()); assertEquals(sets, db.dao().sets())
+        assertEquals(active, db.dao().active()!!.id)
+        assertEquals(removed, repo.saveExercise(null, "Crucifixo", ""))
+        assertFalse(db.dao().exercise(removed)!!.archived)
+        assertEquals(3, db.dao().exercises().size)
+    }
     @Test fun removingSetRenumbersAndSnapshotsPreserveHistory(): Unit = runBlocking {
         val e = repo.saveExercise(null, "Supino", ""); val t = repo.saveTemplate(null, "Treino A", listOf(e)); val w = repo.start(t)
         val es = db.dao().exerciseSessions().single(); repo.addSet(es.id); repo.addSet(es.id)

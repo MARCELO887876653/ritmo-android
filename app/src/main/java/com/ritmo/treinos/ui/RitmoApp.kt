@@ -1,7 +1,7 @@
 package com.ritmo.treinos.ui
 
-import android.content.Intent
-import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +19,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.ritmo.treinos.BuildConfig
+import kotlinx.coroutines.launch
 
 @Composable fun RitmoApp(vm: RitmoViewModel) {
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -29,6 +30,8 @@ import com.ritmo.treinos.BuildConfig
         val route = entry?.destination?.route ?: "home"
         val snackbar = remember { SnackbarHostState() }
         val context = LocalContext.current
+        val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.installUpdate(afterPermission = true) }
+        val installerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
         val view = androidx.compose.ui.platform.LocalView.current
         val isDark = settings.theme == "dark" || (settings.theme == "system" && androidx.compose.foundation.isSystemInDarkTheme())
         SideEffect { (context as? android.app.Activity)?.window?.let { window ->
@@ -38,7 +41,10 @@ import com.ritmo.treinos.BuildConfig
             }
         } }
         LaunchedEffect(vm) { vm.events.collect { event -> when(event) {
-            is UiEvent.Message -> snackbar.showSnackbar(event.text)
+            is UiEvent.Message -> launch { snackbar.showSnackbar(event.text) }
+            is UiEvent.Install -> runCatching {
+                if (event.needsPermission) permissionLauncher.launch(event.intent) else installerLauncher.launch(event.intent)
+            }.onFailure { vm.installLaunchFailed() }
             is UiEvent.Navigate -> {
                 val editingExercise = nav.currentDestination?.route?.startsWith("edit-exercise") == true
                 val editingWorkout = nav.currentDestination?.route?.startsWith("edit-workout") == true
@@ -59,14 +65,14 @@ import com.ritmo.treinos.BuildConfig
         Scaffold(
             snackbarHost = { SnackbarHost(snackbar) },
             bottomBar = { if (route in topRoutes) NavigationBar {
-                topRoutes.forEachIndexed { i, destination -> NavigationBarItem(selected = route == destination, onClick = { nav.navigate(destination) { popUpTo("home") { saveState = true }; launchSingleTop = true; restoreState = true } }, icon = { Icon(icons[i], labels[i]) }, label = { Text(labels[i], style = MaterialTheme.typography.labelSmall) }) }
+                topRoutes.forEachIndexed { i, destination -> NavigationBarItem(selected = route == destination, enabled = data.loaded, onClick = { nav.navigate(destination) { popUpTo("home") { saveState = true }; launchSingleTop = true; restoreState = true } }, icon = { Icon(icons[i], labels[i]) }, label = { Text(labels[i], style = MaterialTheme.typography.labelSmall) }) }
             } }
         ) { padding ->
             if (!data.loaded) Box(Modifier.fillMaxSize().padding(padding), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
             else NavHost(nav, "home", Modifier.fillMaxSize().padding(padding)) {
                 composable("home") { HomeScreen(data, vm, { nav.navigate(it) }) }
                 composable("workouts") { WorkoutsScreen(data, vm, { nav.navigate(it) }) }
-                composable("exercises") { ExercisesScreen(data, { nav.navigate(it) }) }
+                composable("exercises") { ExercisesScreen(data, { nav.navigate(it) }, { vm.deleteExercise(it) }) }
                 composable("history") { HistoryScreen(data, { nav.navigate(it) }) }
                 composable("progress") { ProgressScreen(data, { nav.navigate(it) }) }
                 composable("settings") { SettingsScreen(vm) { nav.popBackStack() } }
@@ -79,19 +85,12 @@ import com.ritmo.treinos.BuildConfig
         }
         if (showUpdate && info != null) {
             val update = info!!
-            AlertDialog(onDismissRequest = { if (!mandatory) vm.dismissedCode.value = update.versionCode },
-                title = { Text(if (mandatory) "Atualização necessária" else "Nova atualização disponível") },
-                text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(if (mandatory) "Você precisa atualizar o aplicativo para continuar." else "A versão ${update.versionName} já está disponível.")
-                    Text(update.message)
-                    val error by vm.updateError.collectAsStateWithLifecycle()
-                    if (error != null) Text("Não foi possível verificar novamente. A exigência de atualização foi confirmada em uma consulta anterior.", style = MaterialTheme.typography.bodySmall)
-                    if (mandatory) TextButton(onClick = { vm.checkUpdate() }) { Text("Verificar novamente") }
-                } },
-                confirmButton = { Button(onClick = {
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.downloadUrl))) }.onFailure { vm.message("Nenhum navegador disponível para abrir o APK.") }
-                }) { Text(if (mandatory) "Atualizar" else "Atualizar agora") } },
-                dismissButton = { if (!mandatory) TextButton(onClick = { vm.dismissedCode.value = update.versionCode }) { Text("Depois") } })
+            val download by vm.apkDownload.collectAsStateWithLifecycle()
+            val error by vm.updateError.collectAsStateWithLifecycle()
+            val installError by vm.installError.collectAsStateWithLifecycle()
+            UpdateDialog(update, mandatory, download, error, installError,
+                { vm.downloadUpdate() }, { vm.cancelDownload() }, { vm.installUpdate() },
+                { vm.dismissedCode.value = update.versionCode }, { vm.checkUpdate() })
         }
     }
 }

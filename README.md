@@ -4,7 +4,9 @@
 
 ## Instalação
 
-Baixe `ritmo-1.0.0.apk` no Release `v1.0.0` quando publicado. Abra no Android e confirme. O sistema poderá pedir permissão para instalar pelo navegador usado. O app nunca instala silenciosamente.
+Instale `ritmo-1.0.2.apk` (build 3) por cima da versão anterior, sem desinstalar. Esta instalação inicial habilita o novo fluxo: nas próximas atualizações, toque em **Atualizar agora**, acompanhe o download dentro do Ritmo e toque em **Instalar atualização**. Se necessário, permita ao Ritmo instalar aplicativos nessa tela do Android; confirme a instalação no instalador do sistema. O app nunca instala silenciosamente. O APK também está disponível no ZIP de entrega.
+
+A versão 1.0.2 está preparada para publicação; siga `PUBLICAR-v1.0.2.md` para disponibilizar o APK no GitHub. O manifesto público só deve anunciar essa versão depois que seu APK estiver disponível.
 
 ## Funcionalidades
 
@@ -17,9 +19,10 @@ Baixe `ritmo-1.0.0.apk` no Release `v1.0.0` quando publicado. Abra no Android e 
 - Histórico geral, detalhe de treino, histórico por exercício e gráfico cronológico de carga máxima.
 - Temas escuro (padrão), claro e sistema; campos grandes para uso durante o treino.
 - Backup JSON local e restauração validada, pelo seletor de arquivos Android.
-- Atualizações opcionais/obrigatórias pelo GitHub, com cache e confirmação do Android.
+- Atualizações opcionais/obrigatórias pelo GitHub, com cache, download interno com progresso, retomada pelo Android e confirmação de instalação.
+- Cancelamento e nova tentativa de download; validação do pacote, versão e certificado de assinatura antes da instalação.
 
-A sugestão de treino de hoje segue a ordem dos modelos após o último utilizado. Você pode iniciar qualquer modelo em Treinos. Só um treino fica ativo por vez. O descanso usa um horário final persistido; o aviso aparece com o app aberto, sem serviço de segundo plano ou alarme externo. Internet é usada somente na consulta de versão. Sem anúncios ou metas corporais.
+A sugestão de treino de hoje segue a ordem dos modelos após o último utilizado. Você pode iniciar qualquer modelo em Treinos. Só um treino fica ativo por vez. O descanso usa um horário final persistido; o aviso aparece com o app aberto, sem serviço de segundo plano ou alarme externo. Internet é usada somente para consultar versões e baixar atualizações autorizadas pelo usuário. O registro de treinos continua offline. Sem anúncios ou metas corporais.
 
 ## Compilar
 
@@ -67,7 +70,7 @@ Use sempre a mesma chave e `applicationId = "com.ritmo.treinos"`. Atualizar por 
 2. Aumente versão/build com o script (ele recusa reutilizar ou reduzir build):
 
 ```bash
-python3 scripts/bump_version.py 1.1.0 2 --message 'Melhorias no registro de treinos.'
+python3 scripts/bump_version.py 1.1.0 4 --message 'Melhorias no registro de treinos.'
 ./gradlew testDebugUnitTest lintDebug assembleRelease
 ```
 
@@ -79,7 +82,7 @@ python3 scripts/bump_version.py 1.1.0 2 --message 'Melhorias no registro de trei
 
 Fluxo: alterar → aumentar build/nome → testar/compilar com mesma chave → Release/APK → `version.json` no main.
 
-Próxima versão: `1.1.0`/2. Seguinte: `1.2.0`/3. `minimumVersionCode` é o mínimo compatível. `forceUpdate: true` bloqueia versões anteriores à nova; um build abaixo do mínimo também bloqueia. Falha de rede, timeout ou JSON inválido não bloqueia o app, salvo exigência obrigatória de cache anteriormente validado. Uma versão já instalada nunca bloqueia. Desativar a verificação ao abrir não ignora uma obrigação já confirmada.
+Próxima versão: `1.1.0`/4. Seguinte: `1.2.0`/5. Os builds 1, 2 e 3 já foram usados por 1.0.0, 1.0.1 e 1.0.2. `minimumVersionCode` é o mínimo compatível. `forceUpdate: true` bloqueia versões anteriores à nova; um build abaixo do mínimo também bloqueia. Falha de rede, timeout ou JSON inválido não bloqueia o app, salvo exigência obrigatória de cache anteriormente validado. Uma versão já instalada nunca bloqueia. Desativar a verificação ao abrir não ignora uma obrigação já confirmada.
 
 Manifesto público: `https://raw.githubusercontent.com/MARCELO887876653/ritmo-android/main/version.json`. APK oficial: `https://github.com/MARCELO887876653/ritmo-android/releases/download/.../*.apk`. Não coloque tokens de repositório privado no APK. Se mudar o repositório antes da distribuição, ajuste `BuildConfig.GITHUB_REPOSITORY` e o manifesto e recompile.
 
@@ -94,6 +97,9 @@ Manifesto público: `https://raw.githubusercontent.com/MARCELO887876653/ritmo-an
 | Backup lógico validado | `data/BackupManager.kt` |
 | Preferências e cronômetro persistido | `data/SettingsStore.kt` |
 | Verificação/cache de versão | `update/UpdateManager.kt` |
+| Download persistido, validação do APK e instalador | `update/ApkDownloads.kt` |
+| Progresso, falhas e botões de atualização | `ui/UpdateDialog.kt` |
+| Compartilhamento exclusivo do APK validado | `app/src/main/res/xml/update_paths.xml` |
 | Estado e operações MVVM | `ui/RitmoViewModel.kt` |
 | Navegação e modal de update | `ui/RitmoApp.kt` |
 | Telas e gráficos | `ui/` |
@@ -109,7 +115,7 @@ Os caminhos Kotlin são relativos a `app/src/main/java/com/ritmo/treinos/`.
 
 `Exercise → ExerciseSession → ExerciseSet`; `WorkoutSession` agrupa a sessão de academia. `WorkoutTemplateExercise` relaciona catálogo e modelos sem duplicar exercícios. Índice único por nome normalizado impede duplicação. Transações preservam um único treino ativo. Excluir modelo ou arquivar exercício preserva histórico; nomes são copiados nas sessões.
 
-O banco distribuído usa schema **2**, independente de versionCode 1. Schema 1 antecede `archived`; migration 1→2 adiciona a coluna sem apagar registros. Esquemas exportados são mantidos no Git. Backup inclui catálogo, modelos, relações, sessões, séries e observações. Preferências e cache de update não são importados. Restauração substitui dados após confirmação, valida o arquivo antes de escrever e usa transação. Arquivo inválido preserva o banco. Limite: 20 MB.
+O banco distribuído usa schema **2**, independente de versionCode 3. Schema 1 antecede `archived`; migration 1→2 adiciona a coluna sem apagar registros. Esquemas exportados são mantidos no Git. Backup inclui catálogo, modelos, relações, sessões, séries e observações. Preferências e cache de update não são importados. Restauração substitui dados após confirmação, valida o arquivo antes de escrever e usa transação. Arquivo inválido preserva o banco. Limite: 20 MB.
 
 ## Documentação consultada
 
@@ -121,3 +127,19 @@ O banco distribuído usa schema **2**, independente de versionCode 1. Schema 1 a
 - [Assinatura e atualizações APK](https://developer.android.com/studio/publish/app-signing)
 
 Resultados reais desta entrega: `docs/VALIDACAO.md`.
+
+## Versão 1.0.1 (build 2)
+
+A lista de exercícios agora mostra uma lixeira em cada item. A tela individual também tem a opção Excluir. A confirmação remove o exercício do catálogo e dos modelos, preservando as séries históricas e o treino em andamento. Cadastrar novamente o mesmo nome reativa o mesmo cadastro, sem duplicar seu histórico.
+
+A distribuição usa um APK já assinado localmente em `distribution/`, acompanhado de SHA-256 e metadados. O workflow `publish-release.yml` verifica os bytes, publica a Release e só depois atualiza `version.json`. A chave privada nunca é enviada ao GitHub; o workflow usa apenas o token temporário fornecido pelo próprio GitHub Actions. Releases existentes só são reutilizadas se o APK tiver exatamente o SHA-256 esperado.
+
+## Versão 1.0.2 (build 3)
+
+O botão de atualizar baixa o APK usando DownloadManager, mostra bytes/progresso e permite cancelar ou tentar novamente. Fechar o app não cancela o download: seu identificador fica nas preferências e o Ritmo recupera o estado ao reabrir. Em Configurações, **Ver download da atualização** reabre o modal caso você tenha tocado em Depois. A opção Depois só existe em atualização opcional. Cancelar o download não remove uma exigência obrigatória já validada.
+
+O APK é aceito apenas se pertencer ao mesmo pacote, corresponder ao nome/build anunciado e apresentar o mesmo certificado da versão instalada. A entrega ao instalador usa uma cópia validada em cache privado com FileProvider e concessão temporária de leitura. A permissão REQUEST_INSTALL_PACKAGES permite solicitar ao Android a instalação; não autoriza instalação silenciosa. O app não pede acesso geral aos arquivos do celular.
+
+Se o Android negar a permissão ou você cancelar a instalação, o APK fica disponível para outra tentativa. Não desinstale o Ritmo para atualizar. O banco permanece no schema 2, com a mesma migration e assinatura. Limite do download: 200 MB. Sem conexão, o app permanece utilizável, salvo obrigação compatível com as regras do manifesto e cache.
+
+Validação desta versão: `docs/VALIDACAO-v1.0.2.md`. Publicação do APK pronto: `PUBLICAR-v1.0.2.md`.
