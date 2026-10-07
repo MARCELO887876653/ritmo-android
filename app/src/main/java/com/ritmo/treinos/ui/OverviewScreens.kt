@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ritmo.treinos.data.*
 
 @Composable fun HomeScreen(data: AppData, vm: RitmoViewModel, go: (String) -> Unit) {
@@ -55,9 +56,14 @@ import com.ritmo.treinos.data.*
 @Composable fun MetricCard(value: String, label: String, modifier: Modifier) {
     Card(modifier) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { Text(value, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary); Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
 }
-@Composable fun WorkoutCard(workout: WorkoutDetail, click: () -> Unit) {
+@Composable fun WorkoutCard(workout: WorkoutDetail, onDelete: (() -> Unit)? = null, deleteEnabled: Boolean = true, click: () -> Unit) {
     Card(onClick = click, modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(workout.session.name, style = MaterialTheme.typography.titleLarge)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(workout.session.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            if (onDelete != null) IconButton(onClick = onDelete, enabled = deleteEnabled) {
+                Icon(Icons.Default.DeleteOutline, "Excluir treino ${workout.session.name} de ${date(workout.session.startedAt)} do histórico", tint = MaterialTheme.colorScheme.error)
+            }
+        }
         Text(date(workout.session.startedAt), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("${duration(workout.session.startedAt, workout.session.endedAt ?: System.currentTimeMillis())} • ${workout.exercises.size} exercícios • ${workout.completedSets} séries", style = MaterialTheme.typography.bodySmall)
         Text(workout.exercises.sortedBy { it.session.position }.joinToString(" • ") { it.session.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -106,12 +112,15 @@ import com.ritmo.treinos.data.*
         confirmButton = { TextButton(onClick = confirm) { Text("Excluir", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = dismiss) { Text("Cancelar") } })
 }
-@Composable fun HistoryScreen(data: AppData, go: (String) -> Unit) {
+@Composable fun HistoryScreen(data: AppData, vm: RitmoViewModel, go: (String) -> Unit) {
+    var pendingDelete by remember { mutableStateOf<WorkoutDetail?>(null) }
+    val busy by vm.busy.collectAsStateWithLifecycle()
     Page {
         item { PageTitle("Histórico", "Cada treino conta uma parte da sua jornada.") }
         if (data.history.isEmpty()) item { EmptyState("Ainda sem registros", "Finalize seu primeiro treino para vê-lo aqui.") }
-        items(data.history, key = { it.session.id }) { WorkoutCard(it) { go("detail/${it.session.id}") } }
+        items(data.history, key = { it.session.id }) { workout -> WorkoutCard(workout, onDelete = { pendingDelete = workout }, deleteEnabled = !busy) { go("detail/${workout.session.id}") } }
     }
+    pendingDelete?.let { workout -> DeleteWorkoutHistoryDialog(workout, busy, { pendingDelete = null }) { pendingDelete = null; vm.deleteWorkoutHistory(workout.session.id) } }
 }
 @Composable fun ProgressScreen(data: AppData, go: (String) -> Unit) {
     Page {

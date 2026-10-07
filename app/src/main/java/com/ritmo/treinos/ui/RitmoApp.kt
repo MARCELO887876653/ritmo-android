@@ -73,14 +73,14 @@ import kotlinx.coroutines.launch
                 composable("home") { HomeScreen(data, vm, { nav.navigate(it) }) }
                 composable("workouts") { WorkoutsScreen(data, vm, { nav.navigate(it) }) }
                 composable("exercises") { ExercisesScreen(data, { nav.navigate(it) }, { vm.deleteExercise(it) }) }
-                composable("history") { HistoryScreen(data, { nav.navigate(it) }) }
+                composable("history") { HistoryScreen(data, vm, { nav.navigate(it) }) }
                 composable("progress") { ProgressScreen(data, { nav.navigate(it) }) }
                 composable("settings") { SettingsScreen(vm) { nav.popBackStack() } }
                 composable("edit-exercise?exerciseId={exerciseId}", arguments = listOf(navArgument("exerciseId") { type = NavType.LongType; defaultValue = 0L })) { e -> ExerciseEditor(data, e.arguments?.getLong("exerciseId") ?: 0, vm) { nav.popBackStack() } }
                 composable("edit-workout?workoutId={workoutId}", arguments = listOf(navArgument("workoutId") { type = NavType.LongType; defaultValue = 0L })) { e -> WorkoutEditor(data, e.arguments?.getLong("workoutId") ?: 0, vm, { nav.popBackStack() }, { nav.navigate(it) }) }
                 composable("exercise/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) { e -> ExerciseScreen(data, e.arguments!!.getLong("id"), vm, { nav.popBackStack() }, { nav.navigate(it) }) }
                 composable("session/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) { e -> SessionScreen(data, e.arguments!!.getLong("id"), vm, { nav.popBackStack() }, { nav.navigate(it) }) }
-                composable("detail/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) { e -> WorkoutHistoryDetail(data, e.arguments!!.getLong("id")) { if (!nav.popBackStack()) nav.navigate("home") } }
+                composable("detail/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) { e -> WorkoutHistoryDetail(data, e.arguments!!.getLong("id"), vm) { if (!nav.popBackStack()) nav.navigate("home") } }
             }
         }
         if (showUpdate && info != null) {

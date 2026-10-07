@@ -43,6 +43,17 @@ class WorkoutRepository(val db: RitmoDatabase) {
         templateId
     }
     suspend fun deleteTemplate(id: Long) = dao.deleteTemplate(id)
+    suspend fun deleteWorkoutHistory(id: Long): Unit = db.withTransaction {
+        val workout = dao.workout(id) ?: return@withTransaction
+        require(workout.endedAt != null) { "Finalize o treino antes de excluir seu registro do histórico." }
+        dao.deleteFinishedWorkout(id)
+    }
+    suspend fun deleteExerciseHistory(id: Long): Unit = db.withTransaction {
+        val session = dao.exerciseSession(id) ?: return@withTransaction
+        require(dao.workout(session.workoutSessionId)?.endedAt != null) { "Finalize o treino antes de excluir uma sessão do histórico." }
+        // Cascades remove only this session's sets. Keep its workout and every other record.
+        dao.deleteFinishedExerciseSession(id)
+    }
     suspend fun start(templateId: Long): Long = db.withTransaction {
         dao.active()?.let { return@withTransaction it.id }
         val template = requireNotNull(dao.template(templateId)) { "Treino não encontrado." }

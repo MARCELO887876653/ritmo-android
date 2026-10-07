@@ -42,6 +42,8 @@ interface RitmoDao {
     @Query("DELETE FROM templates WHERE id=:id") suspend fun deleteTemplate(id: Long)
     @Query("DELETE FROM exercise_sets WHERE id=:id") suspend fun deleteSet(id: Long)
     @Query("DELETE FROM exercise_sets WHERE exerciseSessionId=:id") suspend fun clearSets(id: Long)
+    @Query("DELETE FROM workout_sessions WHERE id=:id AND endedAt IS NOT NULL") suspend fun deleteFinishedWorkout(id: Long): Int
+    @Query("DELETE FROM exercise_sessions WHERE id=:id AND workoutSessionId IN (SELECT id FROM workout_sessions WHERE endedAt IS NOT NULL)") suspend fun deleteFinishedExerciseSession(id: Long): Int
     @Query("DELETE FROM workout_sessions") suspend fun clearWorkouts()
     @Query("DELETE FROM templates") suspend fun clearTemplates()
     @Query("DELETE FROM exercises") suspend fun clearExercises()

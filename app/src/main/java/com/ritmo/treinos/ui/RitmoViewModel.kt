@@ -79,6 +79,15 @@ class RitmoViewModel(private val app: RitmoApplication) : ViewModel() {
     }
     fun saveTemplate(id: Long?, name: String, exerciseIds: List<Long>) = work { repo.saveTemplate(id, name, exerciseIds); eventChannel.send(UiEvent.Navigate("workouts")) }
     fun deleteTemplate(id: Long) = work { repo.deleteTemplate(id); eventChannel.send(UiEvent.Navigate("workouts")) }
+    fun deleteWorkoutHistory(id: Long, leaveDetail: Boolean = false) = work {
+        repo.deleteWorkoutHistory(id)
+        if (leaveDetail) eventChannel.send(UiEvent.Navigate("history", true))
+        eventChannel.send(UiEvent.Message("Registro do treino excluído."))
+    }
+    fun deleteExerciseHistory(id: Long) = work {
+        repo.deleteExerciseHistory(id)
+        eventChannel.send(UiEvent.Message("Sessão do exercício excluída."))
+    }
     fun start(id: Long) = work { eventChannel.send(UiEvent.Navigate("session/${repo.start(id)}")) }
     fun addSet(id: Long) = work { repo.addSet(id) }
     fun removeSet(id: Long) = work { repo.removeSet(id) }
