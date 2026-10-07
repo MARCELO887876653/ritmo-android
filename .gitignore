@@ -16,3 +16,18 @@ signing/
 *.aab
 *.log
 .DS_Store
+
+# === ARQUIVOS PRIVADOS ===
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+*ASSINATURA*
+*assinatura*
+*PRIVATE*
+*private*
+local.properties
+secrets.properties
+.env
+.env.*
