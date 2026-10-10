@@ -7,7 +7,9 @@ import com.ritmo.treinos.update.ApkDownloads
 
 class RitmoApplication : Application() {
     val database by lazy { RitmoDatabase.open(this) }
-    val repository by lazy { WorkoutRepository(database) }
+    val online by lazy { com.ritmo.treinos.online.OnlineService(this) }
+    val rankingSync by lazy { com.ritmo.treinos.online.RankingSynchronizer(database, online) }
+    val repository by lazy { WorkoutRepository(database, online::rankingOwner) }
     val settings by lazy { SettingsStore(this) }
     val updates by lazy { UpdateManager(settings.prefs) }
     val apkDownloads by lazy { ApkDownloads(this, settings.prefs) }

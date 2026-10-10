@@ -22,6 +22,7 @@ jobs:
       - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
       - run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+      - run: cp backend.properties.example backend.properties
       - run: chmod +x gradlew
       - run: ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
@@ -46,6 +47,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+      - run: cp backend.properties.example backend.properties
       - run: chmod +x gradlew
       - uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -53,3 +55,18 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: ./gradlew connectedDebugAndroidTest
+
+  ranking-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend-tests/package-lock.json
+      - run: npm ci
+        working-directory: backend-tests
+      - run: npm test
+        working-directory: backend-tests

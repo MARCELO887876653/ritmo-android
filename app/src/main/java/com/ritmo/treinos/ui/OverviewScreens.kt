@@ -48,6 +48,7 @@ import com.ritmo.treinos.data.*
             }
         }
         item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { go("workouts") }, modifier = Modifier.weight(1f)) { Text("Meus treinos") }; OutlinedButton(onClick = { go("exercises") }, modifier = Modifier.weight(1f)) { Text("Exercícios") } } }
+        item { Card(onClick={go("ranking")},modifier=Modifier.fillMaxWidth()) { Row(Modifier.padding(20.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) { Icon(Icons.Default.EmojiEvents,null,tint=MaterialTheme.colorScheme.primary); Column(Modifier.weight(1f)) {Text("Ranking global",style=MaterialTheme.typography.titleLarge); Text("Seu ritmo, conectado ao mundo",color=MaterialTheme.colorScheme.onSurfaceVariant)}; Icon(Icons.Default.ChevronRight,null) } } }
         item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Section("Últimos treinos"); TextButton(onClick = { go("history") }) { Text("Ver todos") } } }
         if (data.history.isEmpty()) item { EmptyState("Seu histórico começa aqui", "Ao finalizar um treino, suas séries e observações aparecem aqui.") }
         items(data.history.take(3), key = { it.session.id }) { WorkoutCard(it) { go("detail/${it.session.id}") } }

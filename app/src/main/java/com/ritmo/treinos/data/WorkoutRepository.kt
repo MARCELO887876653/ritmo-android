@@ -2,7 +2,7 @@ package com.ritmo.treinos.data
 
 import androidx.room.withTransaction
 
-class WorkoutRepository(val db: RitmoDatabase) {
+class WorkoutRepository(val db: RitmoDatabase, private val rankingOwner: () -> String? = { null }, private val now: () -> Long = System::currentTimeMillis) {
     val dao = db.dao()
     val exercises = dao.observeExercises()
     val templates = dao.observeTemplates()
@@ -59,7 +59,7 @@ class WorkoutRepository(val db: RitmoDatabase) {
         val template = requireNotNull(dao.template(templateId)) { "Treino não encontrado." }
         val links = dao.templateLinks(templateId)
         require(links.isNotEmpty()) { "Este treino não tem exercícios." }
-        val id = dao.insertWorkout(WorkoutSession(templateId = templateId, name = template.name, startedAt = System.currentTimeMillis()))
+        val id = dao.insertWorkout(WorkoutSession(templateId = templateId, name = template.name, startedAt = now(), rankingOwnerId = rankingOwner(), rankingEventId = java.util.UUID.randomUUID().toString()))
         links.forEach { link ->
             val exercise = requireNotNull(dao.exercise(link.exerciseId))
             val es = dao.insertExerciseSession(ExerciseSession(workoutSessionId = id, exerciseId = exercise.id, name = exercise.name, position = link.position))
@@ -102,6 +102,14 @@ class WorkoutRepository(val db: RitmoDatabase) {
     suspend fun finish(id: Long) = db.withTransaction {
         val workout = requireNotNull(dao.workout(id))
         require(dao.exerciseSessions().filter { it.workoutSessionId == id }.any { es -> dao.sessionSets(es.id).any { it.completed } }) { "Conclua pelo menos uma série para finalizar." }
-        if (workout.endedAt == null) dao.updateWorkout(workout.copy(endedAt = System.currentTimeMillis()))
+        if (workout.endedAt == null) {
+            val endedAt = now()
+            dao.updateWorkout(workout.copy(endedAt = endedAt))
+            // Persist together with finish. No later scan of history or backfilled XP.
+            if (workout.rankingOwnerId != null && workout.rankingOwnerId == rankingOwner() &&
+                workout.rankingEventId != null && endedAt - workout.startedAt >= 60_000 && endedAt - workout.startedAt <= 86_400_000) {
+                db.rankingDao().insert(com.ritmo.treinos.online.RankingEvent(workout.rankingEventId, workout.rankingOwnerId, workout.startedAt, endedAt))
+            }
+        }
     }
 }

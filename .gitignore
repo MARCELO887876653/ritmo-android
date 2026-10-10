@@ -36,3 +36,9 @@ secrets.properties
 !distribution/*.apk
 __pycache__/
 *.pyc
+
+backend.properties
+
+node_modules/
+
+supabase/.temp/

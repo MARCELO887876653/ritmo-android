@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@electric-sql/pglite": "0.3.15"
+  },
+  "private": true,
+  "scripts": {
+    "test": "node ranking.test.mjs && node delete-account.test.mjs"
+  }
+}

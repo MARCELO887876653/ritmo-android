@@ -5,6 +5,8 @@ import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
+import com.ritmo.treinos.online.RankingEvent
+import com.ritmo.treinos.online.RankingDao
 
 @Dao
 interface RitmoDao {
@@ -49,14 +51,23 @@ interface RitmoDao {
     @Query("DELETE FROM exercises") suspend fun clearExercises()
 }
 
-@Database(entities = [Exercise::class, WorkoutTemplate::class, TemplateExercise::class, WorkoutSession::class, ExerciseSession::class, ExerciseSet::class], version = 2, exportSchema = true)
+@Database(entities = [Exercise::class, WorkoutTemplate::class, TemplateExercise::class, WorkoutSession::class, ExerciseSession::class, ExerciseSet::class, RankingEvent::class], version = 3, exportSchema = true)
 abstract class RitmoDatabase : RoomDatabase() {
     abstract fun dao(): RitmoDao
+    abstract fun rankingDao(): RankingDao
     companion object {
         // V1 had the same data model, before archiving was introduced. Never reset user data.
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) { db.execSQL("ALTER TABLE exercises ADD COLUMN archived INTEGER NOT NULL DEFAULT 0") }
         }
-        fun open(context: Context, name: String = "ritmo.db") = Room.databaseBuilder(context, RitmoDatabase::class.java, name).addMigrations(MIGRATION_1_2).build()
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE workout_sessions ADD COLUMN rankingOwnerId TEXT")
+                db.execSQL("ALTER TABLE workout_sessions ADD COLUMN rankingEventId TEXT")
+                db.execSQL("CREATE TABLE IF NOT EXISTS ranking_events (eventId TEXT NOT NULL PRIMARY KEY, ownerId TEXT NOT NULL, startedAt INTEGER NOT NULL, completedAt INTEGER NOT NULL, status TEXT NOT NULL, awardedXp INTEGER NOT NULL, error TEXT)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ranking_events_ownerId_status ON ranking_events(ownerId,status)")
+            }
+        }
+        fun open(context: Context, name: String = "ritmo.db") = Room.databaseBuilder(context, RitmoDatabase::class.java, name).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
     }
 }

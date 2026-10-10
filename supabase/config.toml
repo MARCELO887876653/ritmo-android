@@ -1,0 +1,3 @@
+project_id = "ritmo"
+[functions.delete-account]
+verify_jwt = false

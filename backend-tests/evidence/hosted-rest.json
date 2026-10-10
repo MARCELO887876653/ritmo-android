@@ -1,0 +1,163 @@
+{
+  "passed": 11,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "auth_settings",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "body": {
+        "external": {
+          "anonymous_users": false,
+          "apple": false,
+          "azure": false,
+          "bitbucket": false,
+          "discord": false,
+          "facebook": false,
+          "snapchat": false,
+          "figma": false,
+          "fly": false,
+          "github": false,
+          "gitlab": false,
+          "google": false,
+          "keycloak": false,
+          "kakao": false,
+          "linkedin": false,
+          "linkedin_oidc": false,
+          "notion": false,
+          "spotify": false,
+          "slack": false,
+          "slack_oidc": false,
+          "workos": false,
+          "twitch": false,
+          "twitter": false,
+          "email": true,
+          "phone": false,
+          "zoom": false
+        },
+        "disable_signup": false,
+        "mailer_autoconfirm": false,
+        "phone_autoconfirm": false,
+        "sms_provider": "twilio",
+        "saml_enabled": false,
+        "saml_private_key_next_configured": true,
+        "passkeys_enabled": false
+      }
+    },
+    {
+      "name": "ranking_weekly",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "body": {
+        "me": null,
+        "period": "weekly",
+        "entries": [],
+        "updated_at": "2026-10-10T23:37:45.216629+00:00"
+      }
+    },
+    {
+      "name": "ranking_monthly",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "body": {
+        "me": null,
+        "period": "monthly",
+        "entries": [],
+        "updated_at": "2026-10-10T23:37:45.232843+00:00"
+      }
+    },
+    {
+      "name": "ranking_all",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "body": {
+        "me": null,
+        "period": "all",
+        "entries": [],
+        "updated_at": "2026-10-10T23:37:51.500425+00:00"
+      }
+    },
+    {
+      "name": "guest_summary_denied",
+      "status": 401,
+      "expected": 401,
+      "passed": true,
+      "body": {
+        "code": "42501",
+        "details": null,
+        "hint": null,
+        "message": "permission denied for function ritmo_my_summary"
+      }
+    },
+    {
+      "name": "guest_profile_denied",
+      "status": 401,
+      "expected": 401,
+      "passed": true,
+      "body": {
+        "code": "42501",
+        "details": null,
+        "hint": null,
+        "message": "permission denied for function ritmo_get_profile"
+      }
+    },
+    {
+      "name": "guest_delete_denied",
+      "status": 401,
+      "expected": 401,
+      "passed": true,
+      "body": {
+        "error": "authentication_required"
+      }
+    },
+    {
+      "name": "invalid_session_delete_denied",
+      "status": 401,
+      "expected": 401,
+      "passed": true,
+      "body": {
+        "error": "invalid_session"
+      }
+    },
+    {
+      "name": "guest_ledger_table_denied",
+      "status": 401,
+      "expected": 401,
+      "passed": true,
+      "body": {
+        "code": "42501",
+        "details": null,
+        "hint": "Grant the required privileges to the current role with: GRANT SELECT ON public.ritmo_xp_ledger TO anon;",
+        "message": "permission denied for table ritmo_xp_ledger"
+      }
+    },
+    {
+      "name": "invalid_ranking_period",
+      "status": 400,
+      "expected": 400,
+      "passed": true,
+      "body": {
+        "code": "22023",
+        "details": null,
+        "hint": null,
+        "message": "invalid_ranking"
+      }
+    },
+    {
+      "name": "excess_ranking_limit",
+      "status": 400,
+      "expected": 400,
+      "passed": true,
+      "body": {
+        "code": "22023",
+        "details": null,
+        "hint": null,
+        "message": "invalid_ranking"
+      }
+    }
+  ]
+}

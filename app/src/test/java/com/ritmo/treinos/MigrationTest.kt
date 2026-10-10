@@ -14,6 +14,29 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class) @Config(sdk = [35])
 class MigrationTest {
+    @Test fun migrate104Schema2To110PreservesActiveAndHistoricalData(): Unit = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>(); val name = "migration-104-110.db"; context.deleteDatabase(name)
+        val path=context.getDatabasePath(name); path.parentFile!!.mkdirs()
+        val schema=JSONObject(requireNotNull(javaClass.classLoader!!.getResourceAsStream("schema2.json")).bufferedReader().readText()).getJSONObject("database")
+        SQLiteDatabase.openOrCreateDatabase(path,null).use { old ->
+            val entities=schema.getJSONArray("entities")
+            for(i in 0 until entities.length()) { val e=entities.getJSONObject(i); old.execSQL(e.getString("createSql").replace("\${TABLE_NAME}",e.getString("tableName"))); val indices=e.optJSONArray("indices") ?: org.json.JSONArray(); for(x in 0 until indices.length()) old.execSQL(indices.getJSONObject(x).getString("createSql").replace("\${TABLE_NAME}",e.getString("tableName"))) }
+            val setup=schema.getJSONArray("setupQueries"); for(i in 0 until setup.length()) old.execSQL(setup.getString(i))
+            old.execSQL("INSERT INTO exercises VALUES(1,'Supino','supino','nota antiga',1)")
+            old.execSQL("INSERT INTO templates VALUES(1,'Treino A')")
+            old.execSQL("INSERT INTO template_exercises VALUES(1,1,0)")
+            old.execSQL("INSERT INTO workout_sessions VALUES(1,1,'A',1000,2000),(2,1,'A',3000,NULL)")
+            old.execSQL("INSERT INTO exercise_sessions VALUES(1,1,1,'Supino',0,'histórico'),(2,2,1,'Supino',0,'ativo')")
+            old.execSQL("INSERT INTO exercise_sets VALUES(1,1,1,32.5,10,1),(2,2,1,34.0,9,1)")
+            old.version=2
+        }
+        val db=RitmoDatabase.open(context,name)
+        assertEquals(2,db.dao().workouts().size); assertEquals(2L,db.dao().active()!!.id)
+        assertTrue(db.dao().exercises().single().archived); assertEquals("nota antiga",db.dao().exercises().single().notes)
+        assertEquals(listOf(32.5,34.0),db.dao().sets().map{it.weight}); assertEquals(listOf("histórico","ativo"),db.dao().exerciseSessions().map{it.notes})
+        assertTrue(db.dao().workouts().all {it.rankingOwnerId==null&&it.rankingEventId==null}); assertTrue(db.rankingDao().pending("any").isEmpty())
+        db.close(); context.deleteDatabase(name)
+    }
     @Test fun migrateRealSchema1To2KeepsAllWorkoutData(): Unit = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>(); val name = "migration-test.db"; context.deleteDatabase(name)
         val path = context.getDatabasePath(name); path.parentFile!!.mkdirs()

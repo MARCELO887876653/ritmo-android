@@ -25,11 +25,16 @@ sealed interface UiEvent {
     data class Message(val text: String) : UiEvent
     data class Navigate(val route: String, val home: Boolean = false) : UiEvent
 }
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class RitmoViewModel(private val app: RitmoApplication) : ViewModel() {
     private val repo = app.repository
     private val mutex = Mutex()
     val data = combine(repo.exercises, repo.templates, repo.workouts) { e, t, w -> AppData(e, t, w, true) }.stateIn(viewModelScope, SharingStarted.Eagerly, AppData())
     val settings = app.settings.settings
+    val online = app.online
+    val rankingEvents = online.account.flatMapLatest { account -> account?.let { app.database.rankingDao().observe(it.id) } ?: flowOf(emptyList()) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val onlineBusy = MutableStateFlow(false)
+    val onlineMessage = MutableStateFlow<String?>(null)
     private val eventChannel = Channel<UiEvent>(Channel.BUFFERED)
     val events = eventChannel.receiveAsFlow()
     val busy = MutableStateFlow(false)
@@ -43,6 +48,10 @@ class RitmoViewModel(private val app: RitmoApplication) : ViewModel() {
     val restRemaining = MutableStateFlow(0)
     private var deadline = app.settings.restDeadline()
     init {
+        if (online.account.value != null && online.configured) {
+            com.ritmo.treinos.online.RankingWork.periodic(app)
+            com.ritmo.treinos.online.RankingWork.schedule(app)
+        }
         viewModelScope.launch {
             var restoreDownload = true
             while (isActive) {
@@ -97,7 +106,31 @@ class RitmoViewModel(private val app: RitmoApplication) : ViewModel() {
     }
     fun note(id: Long, text: String) = work { repo.note(id, text) }
     fun copyPrevious(id: Long) = work { repo.copyPrevious(id) }
-    fun finish(id: Long) = work { repo.finish(id); stopRest(); eventChannel.send(UiEvent.Navigate("detail/$id", true)) }
+    fun finish(id: Long) = work { repo.finish(id); if(online.rankingOwner()!=null) com.ritmo.treinos.online.RankingWork.schedule(app); stopRest(); eventChannel.send(UiEvent.Navigate("detail/$id", true)) }
+    fun onlineAction(success: String? = null, block: suspend () -> Unit) = viewModelScope.launch {
+        if(onlineBusy.value) return@launch
+        onlineBusy.value=true; onlineMessage.value=null
+        try { block(); if(success!=null) onlineMessage.value=success }
+        catch(e: Exception) { if(e is CancellationException) throw e; onlineMessage.value=e.message ?: "Falha de conexão. Tente novamente." }
+        finally { onlineBusy.value=false }
+    }
+    fun login(email: String,password: String) = onlineAction { online.login(email,password); activateOnline() }
+    fun signup(email: String,password: String) = onlineAction("Confira seu e-mail para confirmar o cadastro. Depois entre no app.") { online.signup(email,password); if(online.account.value!=null) activateOnline() }
+    private suspend fun activateOnline() {
+        online.loadProfile()
+        com.ritmo.treinos.online.RankingWork.periodic(app)
+        com.ritmo.treinos.online.RankingWork.schedule(app)
+    }
+    fun logout() = onlineAction("Você saiu. Seus treinos locais foram preservados.") { com.ritmo.treinos.online.RankingWork.cancel(app); online.logout() }
+    fun deleteAccount() = onlineAction("Conta e dados online excluídos. Os treinos locais foram preservados.") {
+        val owner=online.deleteAccount(); app.database.rankingDao().clear(owner); com.ritmo.treinos.online.RankingWork.cancel(app)
+    }
+    fun refreshOnline() = onlineAction { if(online.account.value!=null) online.loadProfile() }
+    fun syncRanking() = onlineAction { if(!app.rankingSync.sync()) onlineMessage.value=online.syncError.value; com.ritmo.treinos.online.RankingWork.schedule(app) }
+    fun saveOnlineProfile(nickname: String,enabled: Boolean) = onlineAction("Perfil salvo.") { online.saveProfile(nickname,enabled); if(enabled) activateOnline() }
+    fun recoverAccount(email: String) = onlineAction("Se este e-mail estiver cadastrado, você receberá um link. Abra-o neste aparelho.") { online.recover(email) }
+    fun resetPassword(password: String) = onlineAction("Senha atualizada.") { online.resetPassword(password); activateOnline() }
+    fun handleRecovery(uri: Uri) = onlineAction { online.handleRecovery(uri); eventChannel.send(UiEvent.Navigate("account")) }
     fun configure(value: AppSettings) { app.settings.save(value) }
     fun startRest(seconds: Int = settings.value.restSeconds) {
         deadline = System.currentTimeMillis() + seconds.coerceIn(1, 3600) * 1000L

@@ -1,12 +1,12 @@
 # Ritmo • Android
 
-**Seu treino. Seu ritmo.** Aplicativo Android nativo em português, sem conta, com dados locais. Kotlin, Jetpack Compose, Material 3, Room, ViewModel, Navigation Compose e Coroutines. Android 8.0+ (API 26).
+**Seu treino. Seu ritmo.** Aplicativo Android nativo em português, com conta opcional e dados locais. Kotlin, Jetpack Compose, Material 3, Room, ViewModel, Navigation Compose e Coroutines. Android 8.0+ (API 26).
 
 ## Instalação
 
-Instale `ritmo-1.0.4.apk` (build 5) por cima da versão anterior, sem desinstalar. Esta instalação inicial habilita o novo fluxo: nas próximas atualizações, toque em **Atualizar agora**, acompanhe o download dentro do Ritmo e toque em **Instalar atualização**. Se necessário, permita ao Ritmo instalar aplicativos nessa tela do Android; confirme a instalação no instalador do sistema. O app nunca instala silenciosamente. O APK também está disponível no ZIP de entrega.
+O projeto está na versão **1.1.0 / build 6**, com ranking opcional. O backend Supabase Ritmo já está implantado. Copie `backend.properties.example` para `backend.properties` para usar a configuração pública real. O APK conectado é candidato a validação: Auth/e-mails, concorrência real e instalação sobre a 1.0.4 ainda precisam ser validados antes de publicar.
 
-A versão 1.0.4 está preparada para publicação; siga `PUBLICAR-v1.0.4.md` para disponibilizar o APK no GitHub. O manifesto público só deve anunciar essa versão depois que seu APK estiver disponível.
+Leia `docs/RANKING-v1.1.0.md`, `VALIDACAO-1.1.0.md` e `PUBLICAR-v1.1.0.md`. Quando o APK final estiver validado, instale por cima da versão anterior, sem desinstalar. O fluxo de atualização continua com download dentro do app, progresso e confirmação pelo instalador do Android; nunca é silencioso.
 
 ## Funcionalidades
 
@@ -23,7 +23,7 @@ A versão 1.0.4 está preparada para publicação; siga `PUBLICAR-v1.0.4.md` par
 - Atualizações opcionais/obrigatórias pelo GitHub, com cache, download interno com progresso, retomada pelo Android e confirmação de instalação.
 - Cancelamento e nova tentativa de download; validação do pacote, versão e certificado de assinatura antes da instalação.
 
-A sugestão de treino de hoje segue a ordem dos modelos após o último utilizado. Você pode iniciar qualquer modelo em Treinos. Só um treino fica ativo por vez. O descanso usa um horário final persistido; o aviso aparece com o app aberto, sem serviço de segundo plano ou alarme externo. Internet é usada somente para consultar versões e baixar atualizações autorizadas pelo usuário. O registro de treinos continua offline. Sem anúncios ou metas corporais.
+A sugestão de treino de hoje segue a ordem dos modelos após o último utilizado. Você pode iniciar qualquer modelo em Treinos. Só um treino fica ativo por vez. O descanso usa um horário final persistido; o aviso aparece com o app aberto, sem serviço de segundo plano ou alarme externo. Internet é usada para atualizações e, opcionalmente, autenticação e ranking. O registro de treinos continua offline. Sem anúncios ou metas corporais.
 
 ## Compilar
 
@@ -71,19 +71,19 @@ Use sempre a mesma chave e `applicationId = "com.ritmo.treinos"`. Atualizar por 
 2. Aumente versão/build com o script (ele recusa reutilizar ou reduzir build):
 
 ```bash
-python3 scripts/bump_version.py 1.1.0 6 --message 'Melhorias no registro de treinos.'
+python3 scripts/bump_version.py 1.1.1 7 --message 'Melhorias no registro de treinos.'
 ./gradlew testDebugUnitTest lintDebug assembleRelease
 ```
 
 3. Se o modelo Room mudou, aumente a versão do banco, adicione migration e teste todas as versões anteriores. Nunca use `fallbackToDestructiveMigration`.
-4. Confira a assinatura e copie o APK para `ritmo-1.1.0.apk`, fora do código.
-5. Faça commit do código (reserve `version.json` para depois do upload), envie ao GitHub, crie tag `v1.1.0` e Release dessa tag.
+4. Confira a assinatura e copie o APK para `ritmo-1.1.1.apk`, fora do código.
+5. Faça commit do código (reserve `version.json` para depois do upload), envie ao GitHub, crie tag `v1.1.1` e Release dessa tag.
 6. Anexe o APK e confira o download público.
 7. Só então envie `version.json` atualizado ao branch **main**. A tag identifica o código compilado; main mantém os metadados públicos de distribuição.
 
 Fluxo: alterar → aumentar build/nome → testar/compilar com mesma chave → Release/APK → `version.json` no main.
 
-Próxima versão: `1.1.0`/6. Seguinte: `1.2.0`/7. Os builds 1 a 5 já foram usados nas versões 1.0.0 a 1.0.4. `minimumVersionCode` é o mínimo compatível. `forceUpdate: true` bloqueia versões anteriores à nova; um build abaixo do mínimo também bloqueia. Falha de rede, timeout ou JSON inválido não bloqueia o app, salvo exigência obrigatória de cache anteriormente validado. Uma versão já instalada nunca bloqueia. Desativar a verificação ao abrir não ignora uma obrigação já confirmada.
+Versão atual em preparação: `1.1.0`/6. Próxima versão: `1.1.1`/7, ou outro nome com build superior a 6. Os builds 1 a 5 já foram usados nas versões 1.0.0 a 1.0.4. `minimumVersionCode` é o mínimo compatível. `forceUpdate: true` bloqueia versões anteriores à nova; um build abaixo do mínimo também bloqueia. Falha de rede, timeout ou JSON inválido não bloqueia o app, salvo exigência obrigatória de cache anteriormente validado. Uma versão já instalada nunca bloqueia. Desativar a verificação ao abrir não ignora uma obrigação já confirmada.
 
 Manifesto público: `https://raw.githubusercontent.com/MARCELO887876653/ritmo-android/main/version.json`. APK oficial: `https://github.com/MARCELO887876653/ritmo-android/releases/download/.../*.apk`. Não coloque tokens de repositório privado no APK. Se mudar o repositório antes da distribuição, ajuste `BuildConfig.GITHUB_REPOSITORY` e o manifesto e recompile.
 
@@ -93,7 +93,7 @@ Manifesto público: `https://raw.githubusercontent.com/MARCELO887876653/ritmo-an
 |---|---|
 | Android, versão, dependências, assinatura | `app/build.gradle.kts` |
 | Entidades e relações | `data/Models.kt` |
-| Room, DAO e migration 1→2 | `data/RitmoDatabase.kt` |
+| Room, DAO e migrations 1→2→3 | `data/RitmoDatabase.kt` |
 | Regras e transações de treino | `data/WorkoutRepository.kt` |
 | Backup lógico validado | `data/BackupManager.kt` |
 | Preferências e cronômetro persistido | `data/SettingsStore.kt` |
@@ -116,7 +116,7 @@ Os caminhos Kotlin são relativos a `app/src/main/java/com/ritmo/treinos/`.
 
 `Exercise → ExerciseSession → ExerciseSet`; `WorkoutSession` agrupa a sessão de academia. `WorkoutTemplateExercise` relaciona catálogo e modelos sem duplicar exercícios. Índice único por nome normalizado impede duplicação. Transações preservam um único treino ativo. Excluir modelo ou arquivar exercício preserva histórico; nomes são copiados nas sessões.
 
-O banco distribuído usa schema **2**, independente de versionCode 5. Schema 1 antecede `archived`; migration 1→2 adiciona a coluna sem apagar registros. Esquemas exportados são mantidos no Git. Backup inclui catálogo, modelos, relações, sessões, séries e observações. Preferências e cache de update não são importados. Restauração substitui dados após confirmação, valida o arquivo antes de escrever e usa transação. Arquivo inválido preserva o banco. Limite: 20 MB.
+O projeto 1.1.0 usa schema **3**, independente de versionCode 6. Schema 1 antecede `archived`; migration 1→2 adiciona a coluna sem apagar registros. A migration 2→3 adiciona a fila de ranking e campos opcionais nas sessões, preservando os treinos existentes. Esquemas exportados são mantidos no Git. Backup inclui catálogo, modelos, relações, sessões, séries e observações. Preferências e cache de update não são importados. Restauração substitui dados após confirmação, valida o arquivo antes de escrever e usa transação. Arquivo inválido preserva o banco. Limite: 20 MB.
 
 ## Documentação consultada
 
@@ -156,3 +156,9 @@ A confirmação mostra o nome, a data e a quantidade de séries. **Cancelar** pr
 Ao remover a última sessão de exercício de um treino antigo, o registro do treino continua salvo, com zero exercícios; você pode excluí-lo separadamente. Os gráficos, contadores e dados usados em Copiar séries anteriores acompanham os registros restantes.
 
 O Room continua no schema 2: foram acrescentadas consultas específicas por id, sem alteração de tabelas ou migrations. Resultado dos testes: `docs/VALIDACAO-v1.0.4.md`. Publicação: `PUBLICAR-v1.0.4.md`.
+
+## Versão 1.1.0 — ranking opcional (integração aguardando projeto)
+
+O código atual adiciona Supabase Auth, ranking semanal/mensal/geral, XP calculado no PostgreSQL, perfil público opcional, privacidade e fila offline com WorkManager. O banco local migra de 2 para 3. Login/logout preservam os treinos. O backend remoto está implantado, com testes SQL e REST registrados. A distribuição aguarda testes completos de Auth/e-mail, concorrência e aparelho real.
+
+Leia [Ranking: configuração e funcionamento](docs/RANKING-v1.1.0.md) e [Publicação 1.1.0](PUBLICAR-v1.1.0.md). O manifesto candidato está em `release-candidate/version-1.1.0.json`, separado do manifesto público. Não publique uma compilação com o ranking desconectado como atualização concluída.

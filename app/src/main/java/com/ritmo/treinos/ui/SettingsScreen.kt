@@ -16,7 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ritmo.treinos.BuildConfig
 import com.ritmo.treinos.update.DownloadPhase
 
-@Composable fun SettingsScreen(vm: RitmoViewModel, back: () -> Unit) {
+@Composable fun SettingsScreen(vm: RitmoViewModel, back: () -> Unit, go: (String) -> Unit = {}) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val checking by vm.checking.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
@@ -27,6 +27,7 @@ import com.ritmo.treinos.update.DownloadPhase
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> restoreUri = uri }
     Page {
         item { PageTitle("Configurações", "Ritmo, do seu jeito.", back) }
+        item { Section("Conta e ranking"); TextButton({go("profile")}) {Text("Meu perfil")}; TextButton({go("privacy")}) {Text("Conta e privacidade")}; TextButton({go("ranking")}) {Text("Ranking global")} }
         item { Section("Aparência"); Column { listOf("dark" to "Escuro", "light" to "Claro", "system" to "Sistema").forEach { (mode, text) -> Row(verticalAlignment = Alignment.CenterVertically) { RadioButton(selected = settings.theme == mode, onClick = { vm.configure(settings.copy(theme = mode)) }); Text(text) } } } }
         item { Section("Descanso"); SettingSwitch("Iniciar ao concluir série", settings.autoRest) { vm.configure(settings.copy(autoRest = it)) } }
         item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf(30, 60, 90, 120).forEach { value -> FilterChip(selected = settings.restSeconds == value, onClick = { vm.configure(settings.copy(restSeconds = value)); custom = value.toString() }, label = { Text(if (value == 120) "2 min" else "${value}s") }) } } }
