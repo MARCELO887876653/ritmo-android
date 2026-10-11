@@ -23,8 +23,13 @@ class RankingUiTest {
     @After fun cleanup() {store.clear()}
     @Test fun guestCanSwitchLoginAndSignupForms() {
         compose.setContent { RitmoTheme("dark") { AccountScreen(vm(),{}, {}) } }
+        compose.onNodeWithText("Entrar com Google").assertExists()
         compose.onNodeWithText("E-mail").assertExists(); compose.onNodeWithText("Senha").assertExists()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Criar uma conta"))
         compose.onNodeWithText("Criar uma conta").performClick(); compose.onNodeWithText("Criar conta").assertExists()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Entrar com Google"))
+        compose.onNodeWithText("Entrar com Google").assertExists()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Já tenho conta"))
         compose.onNodeWithText("Já tenho conta").performClick(); compose.onNodeWithText("Entrar").assertExists()
     }
     @Test fun profileAndPrivacyAreAccessibleAsGuest() {

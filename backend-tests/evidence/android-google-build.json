@@ -1,0 +1,117 @@
+{
+  "build": "1.1.0 / 6",
+  "source": "Gradle JUnit XML + lint XML + build log + apksigner + aapt",
+  "android_tests": [
+    {
+      "name": "com.ritmo.treinos.ApkDownloadsTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:10:55.457Z"
+    },
+    {
+      "name": "com.ritmo.treinos.AppFlowLocalTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:10:55.846Z"
+    },
+    {
+      "name": "com.ritmo.treinos.DownloadUiTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:10:58.907Z"
+    },
+    {
+      "name": "com.ritmo.treinos.HistoryDeletionTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:10:59.196Z"
+    },
+    {
+      "name": "com.ritmo.treinos.HistoryDeletionUiTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:10:59.443Z"
+    },
+    {
+      "name": "com.ritmo.treinos.MigrationTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:11:00.421Z"
+    },
+    {
+      "name": "com.ritmo.treinos.OnlineServiceTest",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:11:00.542Z"
+    },
+    {
+      "name": "com.ritmo.treinos.RankingQueueTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:11:00.990Z"
+    },
+    {
+      "name": "com.ritmo.treinos.RankingSyncTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:11:01.238Z"
+    },
+    {
+      "name": "com.ritmo.treinos.RankingUiTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:10:48.253Z"
+    },
+    {
+      "name": "com.ritmo.treinos.UpdateInfoTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:11:01.330Z"
+    },
+    {
+      "name": "com.ritmo.treinos.UpdateUiLocalTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:11:01.469Z"
+    },
+    {
+      "name": "com.ritmo.treinos.WorkoutRepositoryTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-10-11T00:11:01.820Z"
+    }
+  ],
+  "lint_errors": 0,
+  "lint_warnings": 24,
+  "build_successful": true,
+  "apk_sha256": "83af649edf3df25cc0a8203e4ca89f876b1541332931ca63a0321ab9f5f6d5d2",
+  "certificate_sha256": "0174c95cab08402c23be939195b5974879cd58c1043f095fa76cc752daf930ce",
+  "google_provider_enabled": false,
+  "google_live_signin_test": "pending"
+}

@@ -1,0 +1,7 @@
+{
+  "method": "Supabase connector, read-only aggregate of non-anonymous auth.users",
+  "confirmed_accounts": 1,
+  "awaiting_confirmation": 1,
+  "limitation": "Aggregate only; does not identify the user in this conversation or prove successful sign-in.",
+  "recorded_at_utc": "2026-10-11T00:13:39.663240+00:00"
+}

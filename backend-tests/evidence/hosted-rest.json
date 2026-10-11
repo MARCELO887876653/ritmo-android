@@ -53,8 +53,15 @@
       "body": {
         "me": null,
         "period": "weekly",
-        "entries": [],
-        "updated_at": "2026-10-10T23:37:45.216629+00:00"
+        "entries": [
+          {
+            "xp": 0,
+            "level": 1,
+            "nickname": "teste",
+            "position": 1
+          }
+        ],
+        "updated_at": "2026-10-11T00:09:11.770478+00:00"
       }
     },
     {
@@ -65,8 +72,15 @@
       "body": {
         "me": null,
         "period": "monthly",
-        "entries": [],
-        "updated_at": "2026-10-10T23:37:45.232843+00:00"
+        "entries": [
+          {
+            "xp": 0,
+            "level": 1,
+            "nickname": "teste",
+            "position": 1
+          }
+        ],
+        "updated_at": "2026-10-11T00:09:11.787665+00:00"
       }
     },
     {
@@ -77,8 +91,15 @@
       "body": {
         "me": null,
         "period": "all",
-        "entries": [],
-        "updated_at": "2026-10-10T23:37:51.500425+00:00"
+        "entries": [
+          {
+            "xp": 0,
+            "level": 1,
+            "nickname": "teste",
+            "position": 1
+          }
+        ],
+        "updated_at": "2026-10-11T00:09:17.864424+00:00"
       }
     },
     {

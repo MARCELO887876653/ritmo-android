@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -107,6 +108,7 @@ import kotlinx.coroutines.launch
     } }
 }
 @Composable fun AccountScreen(vm: RitmoViewModel, back: () -> Unit, go: (String) -> Unit) {
+    val context=LocalContext.current
     val account by vm.online.account.collectAsStateWithLifecycle()
     val recovery by vm.online.recovery.collectAsStateWithLifecycle()
     val busy by vm.onlineBusy.collectAsStateWithLifecycle()
@@ -116,6 +118,16 @@ import kotlinx.coroutines.launch
     Page {
         item { PageTitle(if(recovery) "Nova senha" else if(account==null) "Sua conta Ritmo" else "Conta", "Treine offline. Entre quando quiser participar.",back); OnlineStatus(vm) }
         if(account==null || recovery) {
+            if(!recovery) item {
+                OutlinedButton(onClick={
+                    password=""
+                    vm.loginGoogle { uri ->
+                        try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,uri).addCategory(android.content.Intent.CATEGORY_BROWSABLE)) }
+                        catch(_: android.content.ActivityNotFoundException) { throw IllegalStateException("Instale ou habilite um navegador para entrar com Google.") }
+                    }
+                },enabled=!busy&&vm.online.configured,modifier=Modifier.fillMaxWidth().height(54.dp)) { Text("Entrar com Google") }
+                Text("Escolha sua conta no navegador e volte ao Ritmo. Ou use e-mail e senha abaixo.",style=MaterialTheme.typography.bodySmall,modifier=Modifier.padding(top=8.dp))
+            }
             if(!recovery) item { OutlinedTextField(email,{email=it},label={Text("E-mail")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Email),singleLine=true,modifier=Modifier.fillMaxWidth()) }
             item {
                 OutlinedTextField(password,{password=it},label={Text(if(recovery) "Nova senha" else "Senha")},visualTransformation=PasswordVisualTransformation(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Password),singleLine=true,modifier=Modifier.fillMaxWidth())

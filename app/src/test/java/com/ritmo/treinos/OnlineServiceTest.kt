@@ -19,7 +19,7 @@ class OnlineServiceTest {
     private var stored: String?=null
     private lateinit var service: OnlineService
     private lateinit var fake: Fake
-    @Before fun setup() {stored=null; fake=Fake(); service=create()}
+    @Before fun setup() {context.getSharedPreferences("ritmo_ranking_cache",0).edit().clear().commit(); stored=null; fake=Fake(); service=create()}
     private fun create()=OnlineService(context,fake,{stored},{stored=it},true)
     private suspend fun login() { service.login("me@example.test","long-password"); service.loadProfile() }
     @Test fun loginRefreshLogoutPreserveLocalWorkoutsAndHidePublicEmail(): Unit=runBlocking {
@@ -34,7 +34,69 @@ class OnlineServiceTest {
     }
     @Test fun signupUsesAuthAndDoesNotPretendEmailIsConfirmed(): Unit=runBlocking {
         service.signup("me@example.test","long-password"); assertNull(service.account.value)
-        assertTrue(fake.calls.contains("/auth/v1/signup")); assertTrue(runCatching {service.signup("bad","123")}.isFailure)
+        val request=Uri.parse("https://example.test"+fake.calls.single())
+        assertEquals("/auth/v1/signup",request.path); assertEquals("ritmo://auth/confirm",request.getQueryParameter("redirect_to"))
+        assertEquals("s256",fake.lastBody!!.getString("code_challenge_method")); assertTrue(runCatching {service.signup("bad","123")}.isFailure)
+    }
+    @Test fun googleUsesHttpsPkceAndOnlyBasicScopes(): Unit=runBlocking {
+        val uri=service.beginGoogleLogin()
+        assertEquals("https",uri.scheme); assertEquals("cccpzlvnxmrjrmwvayqw.supabase.co",uri.host); assertEquals("/auth/v1/authorize",uri.path)
+        assertEquals("google",uri.getQueryParameter("provider")); assertEquals("ritmo://auth/google",uri.getQueryParameter("redirect_to"))
+        assertEquals("openid email profile",uri.getQueryParameter("scopes")); assertEquals("s256",uri.getQueryParameter("code_challenge_method"))
+        val verifier=context.getSharedPreferences("ritmo_ranking_cache",0).getString("google_verifier",null)!!
+        val challenge=android.util.Base64.encodeToString(java.security.MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()),11)
+        assertEquals(challenge,uri.getQueryParameter("code_challenge")); assertFalse(uri.toString().contains(verifier)); assertFalse(uri.toString().contains("access_token"))
+    }
+    @Test fun disabledGoogleExplainsConfigurationWithoutStartingSession(): Unit=runBlocking {
+        fake.googleEnabled=false
+        val failure=runCatching {service.beginGoogleLogin()}.exceptionOrNull()!!
+        assertTrue(failure.message!!.contains("habilitado no Supabase")); assertNull(service.account.value)
+        assertNull(context.getSharedPreferences("ritmo_ranking_cache",0).getString("google_verifier",null))
+    }
+    @Test fun googleCallbackSurvivesProcessRestartAndCannotBeReplayed(): Unit=runBlocking {
+        service.beginGoogleLogin(); val reopened=create()
+        assertTrue(reopened.handleAuthLink(Uri.parse("ritmo://auth/google?code=valid"))); assertEquals("A",reopened.account.value!!.id); assertFalse(reopened.recovery.value)
+        assertFalse(JSONObject(stored!!).has("provider_token")); assertFalse(JSONObject(stored!!).has("provider_refresh_token"))
+        assertEquals(setOf("id","email"),JSONObject(stored!!).getJSONObject("user").keys().asSequence().toSet())
+        assertEquals(setOf("auth_code","code_verifier"),fake.lastBody!!.keys().asSequence().toSet())
+        assertTrue(runCatching {reopened.handleAuthLink(Uri.parse("ritmo://auth/google?code=valid"))}.isFailure)
+        assertEquals(1,fake.calls.count {it.contains("grant_type=pkce")})
+    }
+    @Test fun unexpectedCallbackAndExpiredGoogleRequestCannotSignIn(): Unit=runBlocking {
+        assertTrue(runCatching {service.handleAuthLink(Uri.parse("ritmo://auth/google?code=bad"))}.isFailure)
+        service.beginGoogleLogin()
+        listOf("https://auth/google?code=bad","ritmo://other/google?code=bad","ritmo://auth/google/extra?code=bad","ritmo://user@auth/google?code=bad","ritmo://auth:99/google?code=bad").forEach { assertFalse(service.handleAuthLink(Uri.parse(it))) }
+        context.getSharedPreferences("ritmo_ranking_cache",0).edit().putLong("google_requested",System.currentTimeMillis()-600_001).commit()
+        assertTrue(runCatching {service.handleAuthLink(Uri.parse("ritmo://auth/google?code=bad"))}.isFailure)
+        assertNull(service.account.value); assertFalse(fake.calls.any {it.contains("grant_type=pkce")})
+    }
+    @Test fun cancelledOrImplicitGoogleCallbackCannotImportBearerTokens(): Unit=runBlocking {
+        service.beginGoogleLogin()
+        assertTrue(runCatching {service.handleAuthLink(Uri.parse("ritmo://auth/google#error=access_denied"))}.exceptionOrNull()!!.message!!.contains("cancelada"))
+        assertTrue(runCatching {service.handleAuthLink(Uri.parse("ritmo://auth/google#access_token=untrusted&refresh_token=bad"))}.isFailure)
+        assertNull(service.account.value); assertNull(stored); assertFalse(fake.calls.any {it.contains("grant_type=pkce")})
+    }
+    @Test fun emailConfirmationUsesItsOwnVerifierAndPreservesLocalData(): Unit=runBlocking {
+        val db=RitmoDatabase.open(context,"confirm-local.db"); db.dao().insertExercise(com.ritmo.treinos.data.Exercise(name="Preservado"))
+        service.signup("me@example.test","long-password")
+        val expected=context.getSharedPreferences("ritmo_ranking_cache",0).getString("confirm_verifier",null)
+        service.beginGoogleLogin()
+        assertTrue(create().handleAuthLink(Uri.parse("ritmo://auth/confirm?code=confirmed")))
+        assertEquals(expected,fake.lastBody!!.getString("code_verifier")); assertEquals("Preservado",db.dao().exercises().single().name)
+        assertNull(context.getSharedPreferences("ritmo_ranking_cache",0).getString("google_verifier",null))
+        db.close(); context.deleteDatabase("confirm-local.db")
+    }
+    @Test fun legacyConfirmationDoesNotImportTokensAndRecoveryRemainsSeparate(): Unit=runBlocking {
+        assertFalse(service.handleAuthLink(Uri.parse("ritmo://auth/confirm#access_token=untrusted"))); assertNull(service.account.value)
+        service.recover("me@example.test"); service.beginGoogleLogin()
+        assertTrue(service.handleAuthLink(Uri.parse("ritmo://auth/recovery?code=valid"))); assertTrue(service.recovery.value); assertNull(service.rankingOwner())
+    }
+    @Test fun logoutOrPasswordLoginCancelsOutstandingGoogleRequests(): Unit=runBlocking {
+        service.beginGoogleLogin(); service.logout()
+        assertTrue(runCatching {service.handleAuthLink(Uri.parse("ritmo://auth/google?code=late"))}.isFailure)
+        service.beginGoogleLogin(); login()
+        assertTrue(runCatching {service.handleAuthLink(Uri.parse("ritmo://auth/google?code=late"))}.isFailure)
+        assertEquals("A",service.account.value!!.id)
     }
     @Test fun expiredSessionRefreshesOnceAndPersistsNewToken(): Unit=runBlocking {
         login(); val j=JSONObject(stored!!).put("expires_at",1); stored=j.toString(); val reopened=create(); reopened.loadProfile()
@@ -66,13 +128,14 @@ class OnlineServiceTest {
         assertNotNull(service.cachedBoard("weekly",10)); assertNull(service.cachedBoard("monthly",10)); service.logout(); assertNull(service.cachedBoard("weekly",10))
     }
     private class Fake : OnlineTransport {
-        val calls=mutableListOf<String>(); var lastBody: JSONObject?=null; var offline=false; var revoked=false; var deleteFails=false
+        val calls=mutableListOf<String>(); var lastBody: JSONObject?=null; var offline=false; var revoked=false; var deleteFails=false; var googleEnabled=true
         override suspend fun request(path: String,method: String,body: JSONObject?,token: String?): JSONObject {
             calls+=path; lastBody=body
             if(offline) throw java.io.IOException("offline")
             if(path.contains("refresh_token") && revoked) throw OnlineException(400,"invalid_grant","expired")
             return when {
-                path.startsWith("/auth/v1/token") -> JSONObject("""{"access_token":"test","refresh_token":"refresh","expires_in":3600,"user":{"id":"A","email":"me@example.test"}}""")
+                path=="/auth/v1/settings" -> JSONObject().put("external",JSONObject().put("google",googleEnabled))
+                path.startsWith("/auth/v1/token") -> JSONObject("""{"access_token":"test","refresh_token":"refresh","provider_token":"discard-google-token","provider_refresh_token":"discard-google-refresh","expires_in":3600,"user":{"id":"A","email":"me@example.test","user_metadata":{"avatar_url":"unneeded"}}}""")
                 path.endsWith("ritmo_get_profile") || path.endsWith("ritmo_save_profile") -> JSONObject("""{"nickname":"PublicAlias","ranking_enabled":true}""")
                 path.endsWith("ritmo_my_summary") -> JSONObject("""{"total_xp":100,"today_xp":100,"active_days":1,"rewarded_workouts":1}""")
                 path.endsWith("ritmo_submit_workout") -> JSONObject("""{"xp":100,"total_xp":100,"duplicate":false}""")

@@ -6,7 +6,7 @@
 
 O projeto está na versão **1.1.0 / build 6**, com ranking opcional. O backend Supabase Ritmo já está implantado. Copie `backend.properties.example` para `backend.properties` para usar a configuração pública real. O APK conectado é candidato a validação: Auth/e-mails, concorrência real e instalação sobre a 1.0.4 ainda precisam ser validados antes de publicar.
 
-Leia `docs/RANKING-v1.1.0.md`, `VALIDACAO-1.1.0.md` e `PUBLICAR-v1.1.0.md`. Quando o APK final estiver validado, instale por cima da versão anterior, sem desinstalar. O fluxo de atualização continua com download dentro do app, progresso e confirmação pelo instalador do Android; nunca é silencioso.
+Leia `docs/RANKING-v1.1.0.md`, `docs/GOOGLE-E-CONFIRMACAO.md`, `VALIDACAO-1.1.0.md` e `PUBLICAR-v1.1.0.md`. O APK inclui Google e retorno da confirmação ao app com PKCE; o provedor e as URLs precisam ser configurados no painel. Quando o APK final estiver validado, instale por cima da versão anterior, sem desinstalar. O fluxo de atualização continua com download dentro do app, progresso e confirmação pelo instalador do Android; nunca é silencioso.
 
 ## Funcionalidades
 

@@ -115,7 +115,8 @@ class RitmoViewModel(private val app: RitmoApplication) : ViewModel() {
         finally { onlineBusy.value=false }
     }
     fun login(email: String,password: String) = onlineAction { online.login(email,password); activateOnline() }
-    fun signup(email: String,password: String) = onlineAction("Confira seu e-mail para confirmar o cadastro. Depois entre no app.") { online.signup(email,password); if(online.account.value!=null) activateOnline() }
+    fun loginGoogle(openBrowser: (Uri) -> Unit) = onlineAction { openBrowser(online.beginGoogleLogin()) }
+    fun signup(email: String,password: String) = onlineAction("Confira seu e-mail e abra o link de confirmação neste aparelho.") { online.signup(email,password); if(online.account.value!=null) activateOnline() }
     private suspend fun activateOnline() {
         online.loadProfile()
         com.ritmo.treinos.online.RankingWork.periodic(app)
@@ -130,7 +131,18 @@ class RitmoViewModel(private val app: RitmoApplication) : ViewModel() {
     fun saveOnlineProfile(nickname: String,enabled: Boolean) = onlineAction("Perfil salvo.") { online.saveProfile(nickname,enabled); if(enabled) activateOnline() }
     fun recoverAccount(email: String) = onlineAction("Se este e-mail estiver cadastrado, você receberá um link. Abra-o neste aparelho.") { online.recover(email) }
     fun resetPassword(password: String) = onlineAction("Senha atualizada.") { online.resetPassword(password); activateOnline() }
-    fun handleRecovery(uri: Uri) = onlineAction { online.handleRecovery(uri); eventChannel.send(UiEvent.Navigate("account")) }
+    fun handleAuthLink(uri: Uri) {
+        if(!online.acceptsAuthLink(uri)) return
+        onlineAction {
+            val signedIn=online.handleAuthLink(uri)
+            if(signedIn && !online.recovery.value) {
+                activateOnline(); eventChannel.send(UiEvent.Navigate("profile"))
+            } else {
+                if(!signedIn) onlineMessage.value="Volte à tela de entrada e entre com seu e-mail e senha. Se necessário, solicite outro link."
+                eventChannel.send(UiEvent.Navigate("account"))
+            }
+        }
+    }
     fun configure(value: AppSettings) { app.settings.save(value) }
     fun startRest(seconds: Int = settings.value.restSeconds) {
         deadline = System.currentTimeMillis() + seconds.coerceIn(1, 3600) * 1000L

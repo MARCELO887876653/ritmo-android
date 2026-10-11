@@ -73,6 +73,9 @@ class OnlineService(context: Context, private val transport: OnlineTransport = S
     fun rankingOwner(): String? = account.value?.id?.takeIf { profile.value?.enabled == true && !recovery.value }
     private fun JSONObject.account(): Account? = optJSONObject("user")?.let { Account(it.getString("id"),it.optString("email")) }
     private fun saveSession(value: JSONObject?) {
+        // Ritmo uses Supabase sessions only; Google API tokens and profile metadata are unnecessary.
+        value?.remove("provider_token"); value?.remove("provider_refresh_token")
+        value?.optJSONObject("user")?.let { user -> value.put("user",JSONObject().put("id",user.getString("id")).put("email",user.optString("email"))) }
         if(value!=null && !value.has("expires_at")) value.put("expires_at",System.currentTimeMillis()/1000 + value.optLong("expires_in",3600))
         if(writeSecret!=null) writeSecret.invoke(value?.toString()) else if(value==null) vault.clear() else vault.write(value.toString())
         session=value; account.value=value?.account(); recovery.value=value?.optBoolean("recovery",false)==true
@@ -98,31 +101,70 @@ class OnlineService(context: Context, private val transport: OnlineTransport = S
     suspend fun login(email: String,password: String) = mutex.withLock {
         requireConfigured(); require(email.contains('@') && password.isNotBlank()) { "Informe e-mail e senha." }
         val value=transport.request("/auth/v1/token?grant_type=password","POST",JSONObject().put("email",email.trim()).put("password",password),null)
-        profile.value=null; summary.value=XpSummary(); saveSession(value)
+        clearAuthRequests(); profile.value=null; summary.value=XpSummary(); saveSession(value)
     }
     suspend fun signup(email: String,password: String) = mutex.withLock {
         requireConfigured(); require(email.contains('@') && password.length>=8) { "Use um e-mail válido e uma senha com pelo menos 8 caracteres." }
-        val value=transport.request("/auth/v1/signup","POST",JSONObject().put("email",email.trim()).put("password",password),null)
-        if(value.has("access_token")) { profile.value=null; saveSession(value) }
+        val challenge=prepareAuthRequest("confirm")
+        val value=transport.request("/auth/v1/signup?redirect_to=ritmo%3A%2F%2Fauth%2Fconfirm","POST",JSONObject().put("email",email.trim()).put("password",password).put("code_challenge",challenge).put("code_challenge_method","s256"),null)
+        if(value.has("access_token")) { clearAuthRequests(); profile.value=null; summary.value=XpSummary(); saveSession(value) }
+    }
+    private fun prepareAuthRequest(flow: String): String {
+        val verifier=Base64.encodeToString(ByteArray(32).also { SecureRandom().nextBytes(it) },Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+        val challenge=Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)),Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+        // Verifier has no bearer authority. Private, backup-excluded preferences survive process death.
+        check(prefs.edit().putString("${flow}_verifier",verifier).putLong("${flow}_requested",System.currentTimeMillis()).commit()) { "Não foi possível iniciar o acesso. Tente novamente." }
+        return challenge
+    }
+    private fun clearAuthRequests() {
+        val edit=prefs.edit()
+        listOf("confirm","google","recovery").forEach { edit.remove("${it}_verifier").remove("${it}_requested") }
+        edit.commit()
+    }
+    fun acceptsAuthLink(uri: Uri): Boolean = uri.scheme=="ritmo" && uri.host=="auth" && uri.port==-1 && uri.userInfo==null && uri.path in listOf("/confirm","/google","/recovery")
+    suspend fun beginGoogleLogin(): Uri = mutex.withLock {
+        requireConfigured()
+        val settings=transport.request("/auth/v1/settings","GET",null,null)
+        check(settings.optJSONObject("external")?.optBoolean("google")==true) { "O login com Google precisa ser habilitado no Supabase pelo responsável pelo Ritmo. Você pode entrar com e-mail e senha." }
+        val base=Uri.parse(BuildConfig.SUPABASE_URL)
+        require(base.scheme=="https" && base.host?.endsWith(".supabase.co")==true && base.userInfo==null && base.port==-1) { "Endereço de autenticação inválido." }
+        base.buildUpon().path("/auth/v1/authorize").clearQuery().fragment(null)
+            .appendQueryParameter("provider","google")
+            .appendQueryParameter("redirect_to","ritmo://auth/google")
+            .appendQueryParameter("scopes","openid email profile")
+            .appendQueryParameter("code_challenge",prepareAuthRequest("google"))
+            .appendQueryParameter("code_challenge_method","s256")
+            .appendQueryParameter("prompt","select_account").build()
+    }
+    private fun rejectAuthError(uri: Uri) {
+        val fragment=uri.fragment?.let { Uri.parse("ritmo://auth/error?$it") }
+        val error=uri.getQueryParameter("error") ?: fragment?.getQueryParameter("error")
+        if(error!=null) throw IllegalArgumentException(if(error=="access_denied") "A entrada foi cancelada. Você pode tentar novamente." else "Link de acesso inválido ou expirado. Solicite outro pelo app.")
+    }
+    private suspend fun exchangeAuthCode(uri: Uri, flow: String, timeout: Long): Boolean {
+        rejectAuthError(uri)
+        val code=uri.getQueryParameter("code")?.takeIf { it.isNotBlank() && it.length<=4096 } ?: return false
+        val verifier=prefs.getString("${flow}_verifier",null)
+        require(verifier!=null && System.currentTimeMillis()-prefs.getLong("${flow}_requested",0) in 0..timeout) { "Inicie o acesso neste aparelho e abra o link dentro do prazo. Se já confirmou seu e-mail, entre com e-mail e senha." }
+        val value=transport.request("/auth/v1/token?grant_type=pkce","POST",JSONObject().put("auth_code",code).put("code_verifier",verifier),null)
+        require(value.optString("access_token").isNotBlank() && value.optJSONObject("user")?.optString("id")?.isNotBlank()==true) { "Não foi possível validar sua sessão. Tente novamente." }
+        clearAuthRequests(); profile.value=null; summary.value=XpSummary(); value.put("recovery",flow=="recovery"); saveSession(value)
+        return true
+    }
+    suspend fun handleAuthLink(uri: Uri): Boolean = mutex.withLock {
+        if(!acceptsAuthLink(uri)) return@withLock false
+        requireConfigured()
+        val flow=uri.path!!.removePrefix("/")
+        val result=exchangeAuthCode(uri,flow,if(flow=="confirm") 86_400_000L else 600_000L)
+        require(result || flow=="confirm") { "Link de acesso inválido. Inicie a entrada novamente pelo app." }
+        result
     }
     suspend fun recover(email: String) = mutex.withLock {
         requireConfigured(); require(email.contains('@')) { "Informe seu e-mail." }
-        val verifier=Base64.encodeToString(ByteArray(32).also { SecureRandom().nextBytes(it) },Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-        val challenge=Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)),Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-        // Verifier has no bearer authority; keep pending request across process death.
-        prefs.edit().putString("recovery_verifier",verifier).putLong("recovery_requested",System.currentTimeMillis()).commit()
+        val challenge=prepareAuthRequest("recovery")
         transport.request("/auth/v1/recover?redirect_to=ritmo%3A%2F%2Fauth%2Frecovery","POST",JSONObject().put("email",email.trim()).put("code_challenge",challenge).put("code_challenge_method","s256"),null)
     }
-    suspend fun handleRecovery(uri: Uri) = mutex.withLock {
-        if(uri.scheme!="ritmo" || uri.host!="auth" || uri.path!="/recovery") return@withLock
-        requireConfigured()
-        val code=uri.getQueryParameter("code") ?: throw IllegalArgumentException("Link de recuperação inválido. Solicite outro pelo app.")
-        val verifier=prefs.getString("recovery_verifier",null)
-        require(verifier!=null && System.currentTimeMillis()-prefs.getLong("recovery_requested",0) in 0..600_000) { "Solicite a recuperação neste aparelho e abra o link em até 10 minutos." }
-        val value=transport.request("/auth/v1/token?grant_type=pkce","POST",JSONObject().put("auth_code",code).put("code_verifier",verifier),null)
-        prefs.edit().remove("recovery_verifier").remove("recovery_requested").commit()
-        profile.value=null; value.put("recovery",true); saveSession(value)
-    }
+    suspend fun handleRecovery(uri: Uri) { if(uri.path=="/recovery") handleAuthLink(uri) }
     suspend fun resetPassword(password: String) = mutex.withLock {
         require(recovery.value && password.length>=8) { "Use uma senha de pelo menos 8 caracteres." }
         transport.request("/auth/v1/user","PUT",JSONObject().put("password",password),access())
@@ -131,7 +173,7 @@ class OnlineService(context: Context, private val transport: OnlineTransport = S
     suspend fun logout() = mutex.withLock {
         val token=session?.optString("access_token")
         // Local logout succeeds offline; no account-local workout data is removed.
-        saveSession(null); prefs.edit().remove("recovery_verifier").remove("recovery_requested").apply()
+        saveSession(null); clearAuthRequests()
         if(token!=null) runCatching { transport.request("/auth/v1/logout?scope=local","POST",JSONObject(),token) }
         Unit
     }
